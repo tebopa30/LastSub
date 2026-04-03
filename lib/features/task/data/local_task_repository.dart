@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import '../domain/task_entity.dart';
 import '../domain/task_repository.dart';
@@ -20,7 +19,6 @@ class LocalTaskRepository implements TaskRepository {
 
   Future<void> _initialize() async {
     await _ensureTableExists();
-    await _ensureInitialTasks();
   }
 
   Future<void> _ensureTableExists() async {
@@ -39,51 +37,6 @@ class LocalTaskRepository implements TaskRepository {
         recommendedIntervalDays INTEGER
       )
     ''');
-  }
-
-  static const _defaultTasks = [
-    ('task-default-milk',         'ミルク',                  0),
-    ('task-default-breast-right', '母乳　右',                1),
-    ('task-default-breast-left',  '母乳　左',                2),
-    ('task-default-diaper-pee',   'オムツ替え（おしっこ）',  3),
-    ('task-default-diaper-poo',   'オムツ替え（うんち）',    4),
-    ('task-default-sleep',        '睡眠',                    5),
-    ('task-default-sterilize',    '哺乳瓶消毒',              6),
-    ('task-default-bath',         'お風呂',                  7),
-  ];
-
-  Future<void> _ensureInitialTasks() async {
-    final prefs = await SharedPreferences.getInstance();
-    final now = DateTime.now();
-
-    final existing = await _db.query('tasks', columns: ['title']);
-    final existingTitles = existing.map((r) => r['title'] as String).toSet();
-
-    for (final (id, title, order) in _defaultTasks) {
-      if (existingTitles.contains(title)) continue;
-
-      final task = TaskEntity(
-        id: id,
-        title: title,
-        order: order,
-        createdAt: now,
-        updatedAt: now,
-        isActive: true,
-      );
-      final json = task.toJson();
-      json['isActive'] = 1;
-      json['isPremiumLocked'] = 0;
-      json['order'] = order;
-      json.remove('recommendedIntervalDays'); // null はそのまま省略
-
-      await _db.insert('tasks', json, conflictAlgorithm: ConflictAlgorithm.ignore);
-    }
-
-    await prefs.setStringList(
-      'initial_task_ids',
-      _defaultTasks.map((t) => t.$1).toList(),
-    );
-    await prefs.setBool('tasks_initialized', true);
   }
 
   Future<List<TaskEntity>> _fetchTasks() async {

@@ -5,7 +5,6 @@ import '../../../core/services/breast_notification_service.dart';
 import '../application/task_notifier.dart';
 import '../domain/task_entity.dart';
 import '../../../core/providers/database_provider.dart';
-import '../../../core/providers/repository_providers.dart';
 import 'task_design_helper.dart';
 import 'widgets/add_task_modal.dart';
 import '../../history/presentation/history_page.dart';
@@ -16,25 +15,36 @@ import '../../settings/presentation/settings_page.dart';
 // ──────────────────────────────────────────────
 Color _statusColor(TaskEntity task, BuildContext context) {
   final last = task.lastRecordedAt;
-  if (last == null) return Colors.grey.withOpacity(0.5);
+  if (last == null) return Colors.grey.withValues(alpha: 0.5);
 
   final elapsed = DateTime.now().difference(last);
-  final hours = elapsed.inHours;
 
-  final threshold = task.recommendedIntervalDays;
-  if (threshold != null && threshold > 0) {
-    final thresholdHours = threshold * 24;
-    if (hours < thresholdHours) return const Color(0xFF4CAF50);            // 緑
-    if (hours < thresholdHours * 1.5) return const Color(0xFFFFC107);      // 黄
-    if (hours < thresholdHours * 3) return const Color(0xFFFF9800);        // 橙
-    return const Color(0xFFF44336);                                         // 赤
+  // recommendedIntervalDays は秒単位で格納
+  final thresholdSecs = task.recommendedIntervalDays;
+  if (thresholdSecs != null && thresholdSecs > 0) {
+    final s = elapsed.inSeconds;
+    if (s < thresholdSecs) return const Color(0xFF4CAF50);            // 緑
+    if (s < thresholdSecs * 1.5) return const Color(0xFFFFC107);      // 黄
+    if (s < thresholdSecs * 3) return const Color(0xFFFF9800);        // 橙
+    return const Color(0xFFF44336);                                    // 赤
   } else {
-    // 推奨間隔未設定: デフォルト閾値
+    // 推奨間隔未設定: デフォルト閾値（1日/3日/7日）
+    final hours = elapsed.inHours;
     if (hours < 24) return const Color(0xFF4CAF50);
     if (hours < 72) return const Color(0xFFFFC107);
     if (hours < 168) return const Color(0xFFFF9800);
     return const Color(0xFFF44336);
   }
+}
+
+// ──────────────────────────────────────────────
+// 推奨間隔（秒）を人間可読な文字列に変換
+// ──────────────────────────────────────────────
+String _formatIntervalSeconds(int seconds) {
+  if (seconds >= 86400 && seconds % 86400 == 0) return '${seconds ~/ 86400}日';
+  if (seconds >= 3600 && seconds % 3600 == 0) return '${seconds ~/ 3600}時間';
+  if (seconds >= 60 && seconds % 60 == 0) return '${seconds ~/ 60}分';
+  return '$seconds秒';
 }
 
 // ──────────────────────────────────────────────
@@ -48,9 +58,9 @@ String _formatElapsed(DateTime? last) {
   final minutes = elapsed.inMinutes % 60;
 
   if (days >= 7) return '$days日経過';
-  if (days >= 1) return '$days日 $hours時間';
-  if (hours >= 1) return '$hours時間 $minutes分';
-  return '$minutes分';
+  if (days >= 1) return '$days日 $hours時間経過';
+  if (hours >= 1) return '$hours時間 $minutes分経過';
+  return '$minutes分経過';
 }
 
 // ──────────────────────────────────────────────
@@ -70,19 +80,14 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
   /// 連打防止フラグ
   bool _isProcessing = false;
 
-  /// ミルク量選択（taskId → ml）
-  final Map<String, double> _selectedMilkAmounts = {};
+  /// アラートタイマー設定時間（taskId → 分）
+  final Map<String, int> _alertTimerMinutes = {};
 
-  /// 母乳タイマーアラート時間（taskId → 分）
-  final Map<String, int> _breastTimerMinutes = {};
+  /// アラートカウントダウン残り秒（taskId → 秒）
+  final Map<String, int> _alertTimerRemaining = {};
 
-  /// 母乳カウントダウン残り秒（taskId → 秒）
-  final Map<String, int> _breastTimerRemaining = {};
-
-  /// 母乳 Timer インスタンス
-  final Map<String, Timer> _breastTimers = {};
-
-  static const _breastTitles = {'母乳　右', '母乳　左'};
+  /// アラート Timer インスタンス
+  final Map<String, Timer> _alertTimers = {};
 
   @override
   void initState() {
@@ -95,44 +100,44 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
   @override
   void dispose() {
     _minuteTimer?.cancel();
-    for (final t in _breastTimers.values) {
+    for (final t in _alertTimers.values) {
       t.cancel();
     }
     super.dispose();
   }
 
   // ── 母乳タイマー ──────────────────────────
-  void _startBreastTimer(String taskId, int minutes) {
-    _cancelBreastTimer(taskId);
-    setState(() => _breastTimerRemaining[taskId] = minutes * 60);
+  void _startAlertTimer(String taskId, int minutes) {
+    _cancelAlertTimer(taskId);
+    setState(() => _alertTimerRemaining[taskId] = minutes * 60);
     BreastNotificationService.instance.scheduleBreastAlert(taskId, minutes);
-    _breastTimers[taskId] = Timer.periodic(const Duration(seconds: 1), (t) {
+    _alertTimers[taskId] = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) { t.cancel(); return; }
-      final remaining = (_breastTimerRemaining[taskId] ?? 0) - 1;
+      final remaining = (_alertTimerRemaining[taskId] ?? 0) - 1;
       if (remaining <= 0) {
         t.cancel();
-        _breastTimers.remove(taskId);
-        setState(() => _breastTimerRemaining.remove(taskId));
-        _showBreastTimerAlert(taskId);
+        _alertTimers.remove(taskId);
+        setState(() => _alertTimerRemaining.remove(taskId));
+        _showAlertTimerAlert(taskId);
       } else {
-        setState(() => _breastTimerRemaining[taskId] = remaining);
+        setState(() => _alertTimerRemaining[taskId] = remaining);
       }
     });
   }
 
-  void _cancelBreastTimer(String taskId) {
-    _breastTimers[taskId]?.cancel();
-    _breastTimers.remove(taskId);
-    if (_breastTimerRemaining.containsKey(taskId)) {
-      setState(() => _breastTimerRemaining.remove(taskId));
+  void _cancelAlertTimer(String taskId) {
+    _alertTimers[taskId]?.cancel();
+    _alertTimers.remove(taskId);
+    if (_alertTimerRemaining.containsKey(taskId)) {
+      setState(() => _alertTimerRemaining.remove(taskId));
     }
     BreastNotificationService.instance.cancelBreastAlert(taskId);
   }
 
-  void _showBreastTimerAlert(String taskId) {
+  void _showAlertTimerAlert(String taskId) {
     final tasks = ref.read(taskProvider).value ?? [];
     final task = tasks.where((t) => t.id == taskId).firstOrNull;
-    final title = task?.title ?? '母乳';
+    final title = task?.title ?? 'タスク';
     if (!mounted) return;
     showDialog(
       context: context,
@@ -149,56 +154,181 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
     );
   }
 
-  // ── 推奨間隔設定ダイアログ ─────────────────
-  Future<void> _showIntervalDialog(TaskEntity task) async {
-    final controller = TextEditingController(
-      text: task.recommendedIntervalDays?.toString() ?? '',
-    );
-    final result = await showDialog<int?>(
+  // ── 完了記録ダイアログ ─────────────────────
+  static const _availableUnits = ['ml', 'g', 'kg', 'cm', '回', '分', '時間', 'oz'];
+
+  Future<({double? value, String? unit})?> _showCompleteDialog(
+      BuildContext context) async {
+    double? inputValue;
+    String selectedUnit = _availableUnits.first;
+    bool useValue = false;
+    final textController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('推奨間隔を設定'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('「${task.title}」の目安にする間隔（日数）を入力してください。'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '日数（例: 1 / 3 / 7）',
-                suffixText: '日',
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('完了記録'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('完了タスクとして記録しますか？'),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Checkbox(
+                    value: useValue,
+                    onChanged: (v) => setDialogState(() => useValue = v ?? false),
+                  ),
+                  const Text('数値を記録する'),
+                ],
               ),
-              autofocus: true,
+              if (useValue) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: textController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: '数値',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (v) {
+                          inputValue = double.tryParse(v);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    DropdownButton<String>(
+                      value: selectedUnit,
+                      isDense: true,
+                      items: _availableUnits
+                          .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) setDialogState(() => selectedUnit = v);
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('キャンセル'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('記録'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, -1), // -1 = クリア
-            child: const Text('クリア'),
+      ),
+    );
+
+    textController.dispose();
+    if (confirmed != true) return null;
+    return (
+      value: useValue ? inputValue : null,
+      unit: useValue ? selectedUnit : null,
+    );
+  }
+
+  // ── 推奨間隔設定ダイアログ ─────────────────
+  static const _intervalUnits = ['秒', '分', '時間', '日'];
+  static const _unitToSeconds = {'秒': 1, '分': 60, '時間': 3600, '日': 86400};
+
+  /// 既存の秒値を (数値, 単位) に分解する
+  ({int value, String unit}) _secondsToUnitDisplay(int seconds) {
+    if (seconds >= 86400 && seconds % 86400 == 0) return (value: seconds ~/ 86400, unit: '日');
+    if (seconds >= 3600 && seconds % 3600 == 0) return (value: seconds ~/ 3600, unit: '時間');
+    if (seconds >= 60 && seconds % 60 == 0) return (value: seconds ~/ 60, unit: '分');
+    return (value: seconds, unit: '秒');
+  }
+
+  Future<void> _showIntervalDialog(TaskEntity task) async {
+    // 既存値を単位に分解して初期値をセット
+    final existing = task.recommendedIntervalDays;
+    final initial = existing != null && existing > 0
+        ? _secondsToUnitDisplay(existing)
+        : (value: 1, unit: '日');
+
+    String selectedUnit = initial.unit;
+    final controller = TextEditingController(text: initial.value.toString());
+
+    // result: null = キャンセル, -1 = クリア, >0 = 秒数
+    final result = await showDialog<int?>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('推奨間隔を設定'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('「${task.title}」の目安にする間隔を設定してください。'),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: '数値',
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                      ),
+                      autofocus: true,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  DropdownButton<String>(
+                    value: selectedUnit,
+                    isDense: true,
+                    items: _intervalUnits
+                        .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null) setDialogState(() => selectedUnit = v);
+                    },
+                  ),
+                ],
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('キャンセル'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final val = int.tryParse(controller.text.trim());
-              Navigator.pop(ctx, val);
-            },
-            child: const Text('保存'),
-          ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, -1),
+              child: const Text('クリア'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('キャンセル'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final n = int.tryParse(controller.text.trim());
+                if (n == null || n <= 0) return; // 不正値は閉じない
+                Navigator.pop(ctx, n * _unitToSeconds[selectedUnit]!);
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        ),
       ),
     );
     controller.dispose();
 
     if (result == null) return; // キャンセル
-    final days = result == -1 ? null : result; // -1 = クリア
-    await ref.read(taskProvider.notifier).updateRecommendedInterval(task.id, days);
+    final seconds = result == -1 ? null : result;
+    await ref.read(taskProvider.notifier).updateRecommendedInterval(task.id, seconds);
   }
 
   @override
@@ -261,14 +391,6 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
   }
 
   Widget _buildTaskList(BuildContext context, List<TaskEntity> tasks, bool isDark) {
-    final initialTaskIds = ref
-        .watch(initialTaskIdsProvider)
-        .when(
-          data: (ids) => ids,
-          loading: () => tasks.map((t) => t.id).toSet(),
-          error: (_, __) => <String>{},
-        );
-
     if (tasks.isEmpty) {
       return Center(
         child: Column(
@@ -276,7 +398,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
           children: [
             Icon(Icons.timer_outlined,
                 size: 64,
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.4)),
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4)),
             const SizedBox(height: 16),
             Text('タスクがありません',
                 style: Theme.of(context).textTheme.titleMedium),
@@ -297,8 +419,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
       },
       itemBuilder: (context, index) {
         final task = tasks[index];
-        final isInitial = initialTaskIds.contains(task.id);
-        return _buildTaskCard(context, task, isInitial, isDark);
+        return _buildTaskCard(context, task, isDark);
       },
     );
   }
@@ -306,23 +427,14 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
   Widget _buildTaskCard(
     BuildContext context,
     TaskEntity task,
-    bool isInitial,
     bool isDark,
   ) {
-    const instantTitles = {
-      'ミルク', 'オムツ替え', 'オムツ替え（うんち）', 'オムツ替え（おしっこ）',
-      '哺乳瓶消毒', 'お風呂',
-    };
-    final isTimerTask = !instantTitles.contains(task.title);
-    final isSleepTask = task.title == '睡眠';
-    final isBreastTask = _breastTitles.contains(task.title);
-    final isMilkTask = task.title == 'ミルク';
     final isUnrecorded = task.lastRecordedAt == null;
 
     final statusColor = _statusColor(task, context);
     final elapsedText = _formatElapsed(task.lastRecordedAt);
     final design = getTaskDesignInfo(task.title,
-        iconName: task.iconName, colorCode: task.colorCode);
+        iconName: task.iconName, colorCode: task.colorCode, isDark: isDark);
 
     final cardContent = Card(
       key: Key(task.id),
@@ -348,16 +460,16 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                 Row(
                   children: [
                     CircleAvatar(
-                      radius: 18,
+                      radius: 24,
                       backgroundColor: design.backgroundColor,
                       child: Icon(design.iconData,
-                          color: design.iconColor, size: 20),
+                          color: design.iconColor, size: 26),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         task.title,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                         maxLines: 1,
@@ -368,31 +480,31 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                     GestureDetector(
                       onTap: () => _showIntervalDialog(task),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: isDark
                               ? const Color(0xFF2A2A2A)
                               : Theme.of(context).colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(isDark ? 2 : 12),
+                          borderRadius: BorderRadius.circular(isDark ? 4 : 14),
                           border: Border.all(
                             color: isDark
                                 ? const Color(0xFF3A3A3A)
-                                : Theme.of(context).colorScheme.outline.withOpacity(0.3),
+                                : Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
                           ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.schedule,
-                                size: 11,
+                                size: 14,
                                 color: Theme.of(context).colorScheme.onSurfaceVariant),
-                            const SizedBox(width: 3),
+                            const SizedBox(width: 4),
                             Text(
                               task.recommendedIntervalDays != null
-                                  ? '${task.recommendedIntervalDays}日'
+                                  ? _formatIntervalSeconds(task.recommendedIntervalDays!)
                                   : '設定',
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
@@ -435,12 +547,12 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                   ),
                 ),
 
-                // ── 睡眠/母乳のサブ情報 ──
-                if ((isSleepTask || isBreastTask) && !isUnrecorded)
-                  _SleepSubtitle(task: task, isRecording: !isUnrecorded),
+                // ── 計測中サブ情報 ──
+                if (!isUnrecorded)
+                  _SleepSubtitle(task: task, isRecording: true),
 
-                // ── 母乳タイマーアラート設定（計測前）──
-                if (isBreastTask && isUnrecorded) ...[
+                // ── アラートタイマー設定（計測前）──
+                if (isUnrecorded) ...[
                   const SizedBox(height: 4),
                   Row(
                     children: [
@@ -449,7 +561,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                           color: Theme.of(context).colorScheme.onSurfaceVariant),
                       const SizedBox(width: 4),
                       DropdownButton<int>(
-                        value: _breastTimerMinutes[task.id] ?? 5,
+                        value: _alertTimerMinutes[task.id] ?? 5,
                         isDense: true,
                         underline: const SizedBox.shrink(),
                         style: TextStyle(
@@ -463,7 +575,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                                 ))
                             .toList(),
                         onChanged: (val) {
-                          if (val != null) setState(() => _breastTimerMinutes[task.id] = val);
+                          if (val != null) setState(() => _alertTimerMinutes[task.id] = val);
                         },
                       ),
                       Text(' でアラート',
@@ -474,11 +586,11 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                   ),
                 ],
 
-                // ── 母乳カウントダウン（計測中）──
-                if (isBreastTask && _breastTimerRemaining.containsKey(task.id)) ...[
+                // ── アラートカウントダウン（計測中）──
+                if (_alertTimerRemaining.containsKey(task.id)) ...[
                   const SizedBox(height: 4),
                   Builder(builder: (context) {
-                    final rem = _breastTimerRemaining[task.id]!;
+                    final rem = _alertTimerRemaining[task.id]!;
                     final mm = (rem ~/ 60).toString().padLeft(2, '0');
                     final ss = (rem % 60).toString().padLeft(2, '0');
                     return Row(
@@ -502,103 +614,49 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // ミルク量選択
-                    if (isMilkTask) ...[
-                      DropdownButton<double>(
-                        value: _selectedMilkAmounts[task.id] ?? 100.0,
-                        isDense: true,
-                        underline: const SizedBox.shrink(),
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                        items: List.generate(51, (i) => i * 10.0)
-                            .map((ml) => DropdownMenuItem(
-                                  value: ml,
-                                  child: Text('${ml.toInt()}ml'),
-                                ))
-                            .toList(),
-                        onChanged: (val) {
-                          if (val != null) setState(() => _selectedMilkAmounts[task.id] = val);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-
-                    // 記録ボタン（タスク種別による切り替え）
-                    if (isTimerTask) ...[
-                      if (isUnrecorded)
-                        FilledButton(
-                          onPressed: _isProcessing ? null : () async {
-                            setState(() => _isProcessing = true);
-                            try {
-                              await ref.read(taskProvider.notifier).startTask(task.id);
-                              if (isBreastTask) {
-                                _startBreastTimer(task.id, _breastTimerMinutes[task.id] ?? 5);
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('開始できませんでした: $e')));
-                              }
-                            } finally {
-                              if (mounted) setState(() => _isProcessing = false);
-                            }
-                          },
-                          child: const Text('開始'),
-                        )
-                      else
-                        FilledButton.tonal(
-                          onPressed: _isProcessing ? null : () async {
-                            final confirmed = await showDialog<bool>(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: const Text('完了記録'),
-                                content: const Text('完了タスクとして記録しますか？'),
-                                actions: [
-                                  TextButton(
-                                      onPressed: () => Navigator.pop(ctx, false),
-                                      child: const Text('いいえ')),
-                                  FilledButton(
-                                      onPressed: () => Navigator.pop(ctx, true),
-                                      child: const Text('はい')),
-                                ],
-                              ),
-                            );
-                            if (confirmed != true) return;
-                            setState(() => _isProcessing = true);
-                            try {
-                              final startedAt = isSleepTask ? task.lastRecordedAt : null;
-                              if (isBreastTask) _cancelBreastTimer(task.id);
-                              await ref.read(taskProvider.notifier).recordTaskExecution(
-                                task.id,
-                                startedAt: startedAt,
-                                keepLastRecordedAt: false,
-                              );
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('記録できませんでした: $e')));
-                              }
-                            } finally {
-                              if (mounted) setState(() => _isProcessing = false);
-                            }
-                          },
-                          child: const Text('完了'),
-                        ),
-                    ] else ...[
-                      // 即時記録型
+                    // 開始 / 完了ボタン（全タスク共通タイマー形式）
+                    if (isUnrecorded)
                       FilledButton(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(96, 48),
+                          textStyle: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w700),
+                        ),
                         onPressed: _isProcessing ? null : () async {
                           setState(() => _isProcessing = true);
                           try {
+                            await ref.read(taskProvider.notifier).startTask(task.id);
+                            _startAlertTimer(task.id, _alertTimerMinutes[task.id] ?? 5);
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('開始できませんでした: $e')));
+                            }
+                          } finally {
+                            if (mounted) setState(() => _isProcessing = false);
+                          }
+                        },
+                        child: const Text('開始'),
+                      )
+                    else
+                      FilledButton.tonal(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(96, 48),
+                          textStyle: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w700),
+                        ),
+                        onPressed: _isProcessing ? null : () async {
+                          final result = await _showCompleteDialog(context);
+                          if (result == null) return;
+                          setState(() => _isProcessing = true);
+                          try {
+                            _cancelAlertTimer(task.id);
                             await ref.read(taskProvider.notifier).recordTaskExecution(
                               task.id,
-                              value: isMilkTask
-                                  ? (_selectedMilkAmounts[task.id] ?? 100.0)
-                                  : null,
-                              keepLastRecordedAt: true,
+                              startedAt: task.lastRecordedAt,
+                              value: result.value,
+                              unit: result.unit,
+                              keepLastRecordedAt: false,
                             );
                           } catch (e) {
                             if (context.mounted) {
@@ -609,9 +667,8 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                             if (mounted) setState(() => _isProcessing = false);
                           }
                         },
-                        child: const Text('記録'),
+                        child: const Text('完了'),
                       ),
-                    ],
                   ],
                 ),
               ],
@@ -620,9 +677,6 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
         ],
       ),
     );
-
-    // スワイプ削除（デフォルトタスク以外のみ）
-    if (isInitial) return cardContent;
 
     return Dismissible(
       key: Key('dismiss_${task.id}'),

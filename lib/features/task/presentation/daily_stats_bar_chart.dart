@@ -36,6 +36,7 @@ class _DailyStatsBarChartState extends State<DailyStatsBarChart> {
         name,
         iconName: entity?.iconName,
         colorCode: entity?.colorCode,
+        isDark: Theme.of(context).brightness == Brightness.dark,
       );
       map[name] = design.backgroundColor;
     }
