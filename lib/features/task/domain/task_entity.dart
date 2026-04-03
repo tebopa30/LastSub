@@ -14,7 +14,8 @@ sealed class TaskEntity with _$TaskEntity {
     @Default(false) bool isPremiumLocked,
     @Default(0) int order,
     DateTime? lastRecordedAt,
-    /// 推奨間隔（日数）。null = 未設定
+    /// 推奨間隔（秒単位）。null = 未設定。
+    /// DB列名は後方互換のため recommendedIntervalDays のままだが、実際には秒を格納する。
     int? recommendedIntervalDays,
     required DateTime createdAt,
     required DateTime updatedAt,

@@ -32,8 +32,8 @@ class TaskNotifier extends _$TaskNotifier {
     int? recommendedIntervalDays,
   }) async {
     final currentCount = state.value?.length ?? 0;
-    if (currentCount >= 20) {
-      throw Exception('タスクは最大20件まで追加できます');
+    if (currentCount >= 5) {
+      throw Exception('タスクは最大5件まで追加できます');
     }
 
     final repo = await ref.read(taskRepositoryProvider.future);
@@ -72,6 +72,7 @@ class TaskNotifier extends _$TaskNotifier {
   Future<void> recordTaskExecution(
     String taskId, {
     double? value,
+    String? unit,
     String? memo,
     DateTime? startedAt,
     bool keepLastRecordedAt = false,
@@ -79,14 +80,6 @@ class TaskNotifier extends _$TaskNotifier {
     debugPrint('TaskNotifier: recordTaskExecution(taskId: $taskId)');
     final repo = ref.read(taskRecordRepositoryProvider);
     final now = DateTime.now();
-
-    final taskTitle = state.value
-        ?.firstWhere(
-          (t) => t.id == taskId,
-          orElse: () => TaskEntity(id: taskId, title: '', createdAt: now, updatedAt: now),
-        )
-        .title;
-    final unit = (taskTitle == 'ミルク' && value != null) ? 'ml' : null;
 
     final record = TaskRecordEntity(
       id: const Uuid().v4(),

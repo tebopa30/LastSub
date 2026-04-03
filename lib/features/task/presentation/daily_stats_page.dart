@@ -196,7 +196,8 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final design = getTaskDesignInfo(title);
+    final design = getTaskDesignInfo(title,
+        isDark: Theme.of(context).brightness == Brightness.dark);
 
     return Card(
       child: Padding(

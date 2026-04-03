@@ -9,6 +9,11 @@ import '../../task/domain/task_record_entity.dart';
 import '../../task/presentation/task_design_helper.dart';
 import 'widgets/simple_history_chart.dart';
 
+/// プレミアムユーザーかどうかを制御するフラグ。
+/// true にすると「全期間」が解放される。
+/// 将来的にはサーバー取得や Provider に置き換える。
+const bool kIsPremiumUser = false;
+
 class HistoryPage extends ConsumerWidget {
   const HistoryPage({super.key});
 
@@ -33,11 +38,22 @@ class HistoryPage extends ConsumerWidget {
               segments: const [
                 ButtonSegment(value: 7, label: Text('7日間')),
                 ButtonSegment(value: 30, label: Text('30日間')),
-                ButtonSegment(value: null, label: Text('全期間')),
+                ButtonSegment(
+                  value: null,
+                  label: Text('全期間'),
+                  icon: kIsPremiumUser
+                      ? null
+                      : Icon(Icons.lock_outline, size: 14),
+                ),
               ],
               selected: {currentPeriod},
               onSelectionChanged: (newSelection) {
-                ref.read(historyPeriodProvider.notifier).setPeriod(newSelection.first);
+                final picked = newSelection.first;
+                if (picked == null && !kIsPremiumUser) {
+                  _showPremiumDialog(context);
+                  return;
+                }
+                ref.read(historyPeriodProvider.notifier).setPeriod(picked);
               },
             ),
           ),
@@ -80,6 +96,25 @@ class HistoryPage extends ConsumerWidget {
     );
   }
 
+  void _showPremiumDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.lock_outline, size: 32),
+        title: const Text('プレミアム機能'),
+        content: const Text(
+          '全期間の履歴表示はプレミアムプランで利用できます。',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('閉じる'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDateSection(
     BuildContext context,
     WidgetRef ref,
@@ -108,8 +143,10 @@ class HistoryPage extends ConsumerWidget {
     GroupedTaskItem group,
   ) {
     final task = group.task;
-    final design =
-        getTaskDesignInfo(task.title, iconName: task.iconName, colorCode: task.colorCode);
+    final design = getTaskDesignInfo(task.title,
+        iconName: task.iconName,
+        colorCode: task.colorCode,
+        isDark: Theme.of(context).brightness == Brightness.dark);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
