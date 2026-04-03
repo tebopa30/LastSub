@@ -52,8 +52,8 @@ class LastSubApp extends ConsumerWidget {
 
     return MaterialApp(
       title: 'LastSub',
-      theme: AppTheme.softLightTheme,
-      darkTheme: AppTheme.deepDarkTheme,
+      theme: AppTheme.naturalSoftTheme,
+      darkTheme: AppTheme.classicSleekTheme,
       themeMode: themeMode,
       navigatorKey: navigatorKey,
       home: const TaskListPage(),

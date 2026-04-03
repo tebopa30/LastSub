@@ -5,12 +5,10 @@ import '../../domain/growth_record_entity.dart';
 
 class GrowthChart extends StatelessWidget {
   final List<GrowthRecordEntity> records;
-  final bool isPremium;
 
   const GrowthChart({
     super.key,
     required this.records,
-    required this.isPremium,
   });
 
   @override
@@ -52,7 +50,7 @@ class GrowthChart extends StatelessWidget {
                   ? const Center(child: Text('体重データがありません'))
                   : LineChart(
                       LineChartData(
-                        lineTouchData: LineTouchData(enabled: isPremium), // 無料ならタップ無効化
+                        lineTouchData: const LineTouchData(enabled: true),
                         titlesData: FlTitlesData(
                           show: true,
                           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),

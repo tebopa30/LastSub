@@ -10,7 +10,7 @@ class SettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
-    final isDeepDark = themeMode == ThemeMode.dark;
+    final isClassicSleek = themeMode == ThemeMode.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -29,25 +29,25 @@ class SettingsPage extends ConsumerWidget {
               children: [
                 Expanded(
                   child: _ThemeCard(
-                    label: 'Soft Light',
-                    description: '暖色・丸みのある柔らかいデザイン',
-                    icon: Icons.wb_sunny_outlined,
-                    isSelected: !isDeepDark,
+                    label: 'Natural Soft',
+                    description: '白・ベージュ・淡いグリーンの優しいデザイン',
+                    icon: Icons.eco_outlined,
+                    isSelected: !isClassicSleek,
                     onTap: () => ref
                         .read(themeModeProvider.notifier)
-                        .setTheme(AppThemeType.softLight),
+                        .setTheme(AppThemeType.naturalSoft),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _ThemeCard(
-                    label: 'Deep Dark',
-                    description: '黒基調・シックで尖ったデザイン',
+                    label: 'Classic Sleek',
+                    description: '黒・ダークグレー・細いフォントのミニマリスト',
                     icon: Icons.nightlight_outlined,
-                    isSelected: isDeepDark,
+                    isSelected: isClassicSleek,
                     onTap: () => ref
                         .read(themeModeProvider.notifier)
-                        .setTheme(AppThemeType.deepDark),
+                        .setTheme(AppThemeType.classicSleek),
                   ),
                 ),
               ],

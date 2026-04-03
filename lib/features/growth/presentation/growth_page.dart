@@ -3,10 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../domain/growth_record_entity.dart';
 import '../application/growth_notifier.dart';
-import '../../premium/application/premium_status_notifier.dart';
 import 'widgets/growth_chart.dart';
 import 'widgets/growth_input_modal.dart';
-import '../../../core/services/csv_export_service.dart' show PdfExportService;
 
 class GrowthPage extends ConsumerWidget {
   const GrowthPage({super.key});
@@ -14,31 +12,10 @@ class GrowthPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final recordsAsync = ref.watch(growthRecordsStreamProvider);
-    final premiumStatusAsync = ref.watch(premiumStatusProvider);
-    final isPremium = premiumStatusAsync.value?.isPremium ?? false;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('成長の記録'),
-        actions: [
-          if (isPremium)
-            IconButton(
-              icon: const Icon(Icons.download_outlined),
-              tooltip: 'PDFで出力',
-              onPressed: () async {
-                final records = recordsAsync.value ?? [];
-                try {
-                  await PdfExportService.exportGrowth(records);
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('PDF出力に失敗しました: $e')),
-                    );
-                  }
-                }
-              },
-            ),
-        ],
       ),
       body: recordsAsync.when(
         data: (records) {
@@ -51,53 +28,8 @@ class GrowthPage extends ConsumerWidget {
               // ── 成長曲線グラフ表示 ──
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: GrowthChart(records: sorted, isPremium: isPremium),
+                child: GrowthChart(records: sorted),
               ),
-
-              // ── プレミアム導線 ──
-              if (!isPremium)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16.0,
-                    vertical: 8.0,
-                  ),
-                  child: InkWell(
-                    onTap: () {
-                      _showPremiumDialog(context);
-                    },
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.lock,
-                            size: 18,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSecondaryContainer,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'グラフの拡大や詳細履歴はプレミアム限定',
-                            style: TextStyle(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSecondaryContainer,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
 
               // ── 履歴リスト ──
               Expanded(
@@ -282,27 +214,4 @@ class GrowthPage extends ConsumerWidget {
     );
   }
 
-  void _showPremiumDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('プレミアム機能'),
-        content: const Text(
-          '過去すべての成長データの可視化や、月齢に応じた細かい成長の軌跡グラフの利用はプレミアムプラン限定となります。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('閉じる'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-            },
-            child: const Text('アップグレード'),
-          ),
-        ],
-      ),
-    );
-  }
 }

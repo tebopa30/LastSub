@@ -6,8 +6,8 @@ part 'theme_provider.g.dart';
 
 /// アプリで選択できる2つのテーマ
 enum AppThemeType {
-  softLight,  // 暖色系白基調・丸みのある柔らかいデザイン
-  deepDark,   // 黒基調・ミニマリスト・シックで尖ったデザイン
+  naturalSoft,   // 白・ベージュ・淡いグリーン・丸みのある優しいデザイン
+  classicSleek,  // 黒・ダークグレー・細いフォント・ミニマリスト
 }
 
 @riverpod
@@ -17,13 +17,13 @@ class ThemeModeNotifier extends _$ThemeModeNotifier {
   @override
   ThemeMode build() {
     _loadTheme();
-    return ThemeMode.light; // 初期値は Soft Light
+    return ThemeMode.light; // 初期値は Natural Soft
   }
 
   Future<void> _loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
     final value = prefs.getString(_key);
-    if (value == AppThemeType.deepDark.name) {
+    if (value == AppThemeType.classicSleek.name) {
       state = ThemeMode.dark;
     } else {
       state = ThemeMode.light;
@@ -31,11 +31,11 @@ class ThemeModeNotifier extends _$ThemeModeNotifier {
   }
 
   Future<void> setTheme(AppThemeType type) async {
-    state = type == AppThemeType.deepDark ? ThemeMode.dark : ThemeMode.light;
+    state = type == AppThemeType.classicSleek ? ThemeMode.dark : ThemeMode.light;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_key, type.name);
   }
 
   AppThemeType get currentType =>
-      state == ThemeMode.dark ? AppThemeType.deepDark : AppThemeType.softLight;
+      state == ThemeMode.dark ? AppThemeType.classicSleek : AppThemeType.naturalSoft;
 }
