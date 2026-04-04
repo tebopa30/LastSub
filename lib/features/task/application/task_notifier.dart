@@ -2,9 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/providers/repository_providers.dart';
+import '../../../core/providers/premium_provider.dart';
+import '../../../core/services/breast_notification_service.dart';
 import '../domain/task_entity.dart';
 import '../domain/task_record_entity.dart';
 import 'daily_stats_provider.dart';
+import 'active_sessions_provider.dart';
 
 part 'task_notifier.g.dart';
 
@@ -32,8 +35,10 @@ class TaskNotifier extends _$TaskNotifier {
     int? recommendedIntervalDays,
   }) async {
     final currentCount = state.value?.length ?? 0;
-    if (currentCount >= 5) {
-      throw Exception('タスクは最大5件まで追加できます');
+    final isPremium = ref.read(isPremiumProvider);
+    final limit = isPremium ? 15 : 5;
+    if (currentCount >= limit) {
+      throw Exception('タスクは最大$limit件まで追加できます');
     }
 
     final repo = await ref.read(taskRepositoryProvider.future);
@@ -51,33 +56,24 @@ class TaskNotifier extends _$TaskNotifier {
     await repo.saveTask(task);
   }
 
-  /// タスク開始（タイマー開始）: lastRecordedAt を現在時刻に更新
+  /// タスク開始: セッション開始時刻を記録する（lastRecordedAt は変更しない）
   Future<void> startTask(String taskId) async {
-    final now = DateTime.now();
-    final taskRepoAsync = ref.read(taskRepositoryProvider);
-    if (taskRepoAsync.hasValue) {
-      await taskRepoAsync.requireValue.updateLastRecordedAt(taskId, now);
-    }
-
-    final current = state.value;
-    if (current != null) {
-      state = AsyncData(current.map((task) {
-        if (task.id != taskId) return task;
-        return task.copyWith(lastRecordedAt: now, updatedAt: now);
-      }).toList());
-    }
+    ref.read(activeSessionsProvider.notifier).startSession(taskId);
   }
 
-  /// タスクの実行記録
+  /// タスクの実行記録。セッション開始時刻は activeSessionsProvider から自動取得。
   Future<void> recordTaskExecution(
     String taskId, {
     double? value,
     String? unit,
     String? memo,
-    DateTime? startedAt,
-    bool keepLastRecordedAt = false,
   }) async {
     debugPrint('TaskNotifier: recordTaskExecution(taskId: $taskId)');
+
+    // セッションを終了し、開始時刻を取得
+    final sessionStart =
+        ref.read(activeSessionsProvider.notifier).endSession(taskId);
+
     final repo = ref.read(taskRecordRepositoryProvider);
     final now = DateTime.now();
 
@@ -85,7 +81,7 @@ class TaskNotifier extends _$TaskNotifier {
       id: const Uuid().v4(),
       taskId: taskId,
       recordedAt: now,
-      startedAt: startedAt,
+      startedAt: sessionStart,
       value: value,
       unit: unit,
       memo: memo,
@@ -96,27 +92,28 @@ class TaskNotifier extends _$TaskNotifier {
     await repo.addRecord(record);
     ref.invalidate(dailyStatsProvider);
 
+    // 記録完了時刻を lastRecordedAt として保存（次のサイクルの起点）
     final taskRepoAsync = ref.read(taskRepositoryProvider);
     if (taskRepoAsync.hasValue) {
-      if (keepLastRecordedAt) {
-        await taskRepoAsync.requireValue.updateLastRecordedAt(taskId, now);
-      } else {
-        await taskRepoAsync.requireValue.resetLastRecordedAt(taskId);
-      }
+      await taskRepoAsync.requireValue.updateLastRecordedAt(taskId, now);
     }
 
-    final newLastRecordedAt = keepLastRecordedAt ? now : null;
     final current = state.value;
     if (current != null) {
       state = AsyncData(current.map((task) {
         if (task.id == taskId) {
-          return task.copyWith(
-            lastRecordedAt: newLastRecordedAt,
-            updatedAt: now,
-          );
+          return task.copyWith(lastRecordedAt: now, updatedAt: now);
         }
         return task;
       }).toList());
+    }
+
+    // 推奨間隔が設定されていれば次のサイクルの通知をスケジュール
+    final task = state.value?.where((t) => t.id == taskId).firstOrNull;
+    final interval = task?.recommendedIntervalDays;
+    if (task != null && interval != null && interval > 0) {
+      await BreastNotificationService.instance
+          .scheduleIntervalAlert(taskId, task.title, interval);
     }
   }
 

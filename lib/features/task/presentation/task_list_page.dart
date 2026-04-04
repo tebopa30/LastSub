@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../../../core/services/breast_notification_service.dart';
+import '../../../core/providers/premium_provider.dart';
 import '../application/task_notifier.dart';
+import '../application/active_sessions_provider.dart';
 import '../domain/task_entity.dart';
 import '../../../core/providers/database_provider.dart';
 import 'task_design_helper.dart';
@@ -110,7 +113,9 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
   void _startAlertTimer(String taskId, int minutes) {
     _cancelAlertTimer(taskId);
     setState(() => _alertTimerRemaining[taskId] = minutes * 60);
-    BreastNotificationService.instance.scheduleBreastAlert(taskId, minutes);
+    final tasks = ref.read(taskProvider).value ?? [];
+    final taskTitle = tasks.where((t) => t.id == taskId).firstOrNull?.title ?? 'タスク';
+    BreastNotificationService.instance.scheduleBreastAlert(taskId, minutes, taskTitle: taskTitle);
     _alertTimers[taskId] = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) { t.cancel(); return; }
       final remaining = (_alertTimerRemaining[taskId] ?? 0) - 1;
@@ -349,6 +354,8 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
   Widget _buildScaffold(BuildContext context) {
     final taskListAsync = ref.watch(taskProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isPremium = ref.watch(isPremiumProvider);
+    final activeSessions = ref.watch(activeSessionsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -378,10 +385,11 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
       body: taskListAsync.when(
         skipLoadingOnReload: true,
         skipError: true,
-        data: (tasks) => _buildTaskList(context, tasks, isDark),
+        data: (tasks) => _buildTaskList(context, tasks, isDark, activeSessions),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('エラー: $e')),
       ),
+      bottomNavigationBar: isPremium ? null : const _BannerAdWidget(),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddTaskModal(context),
         tooltip: 'タスクを追加',
@@ -390,7 +398,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
     );
   }
 
-  Widget _buildTaskList(BuildContext context, List<TaskEntity> tasks, bool isDark) {
+  Widget _buildTaskList(BuildContext context, List<TaskEntity> tasks, bool isDark, Map<String, DateTime> activeSessions) {
     if (tasks.isEmpty) {
       return Center(
         child: Column(
@@ -419,7 +427,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
       },
       itemBuilder: (context, index) {
         final task = tasks[index];
-        return _buildTaskCard(context, task, isDark);
+        return _buildTaskCard(context, task, isDark, activeSessions);
       },
     );
   }
@@ -428,7 +436,9 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
     BuildContext context,
     TaskEntity task,
     bool isDark,
+    Map<String, DateTime> activeSessions,
   ) {
+    final isRecording = activeSessions.containsKey(task.id);
     final isUnrecorded = task.lastRecordedAt == null;
 
     final statusColor = _statusColor(task, context);
@@ -525,7 +535,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                     children: [
                       Container(
                         width: 5,
-                        height: 44,
+                        height: 52,
                         margin: const EdgeInsets.only(right: 10),
                         decoration: BoxDecoration(
                           color: statusColor,
@@ -535,7 +545,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                       Text(
                         elapsedText,
                         style: TextStyle(
-                          fontSize: 40,
+                          fontSize: 48,
                           fontWeight: FontWeight.w800,
                           color: isUnrecorded
                               ? Theme.of(context).colorScheme.outline
@@ -548,11 +558,11 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                 ),
 
                 // ── 計測中サブ情報 ──
-                if (!isUnrecorded)
-                  _SleepSubtitle(task: task, isRecording: true),
+                if (isRecording)
+                  _SleepSubtitle(sessionStart: activeSessions[task.id]),
 
                 // ── アラートタイマー設定（計測前）──
-                if (isUnrecorded) ...[
+                if (!isRecording) ...[
                   const SizedBox(height: 4),
                   Row(
                     children: [
@@ -600,7 +610,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                         const SizedBox(width: 4),
                         Text('$mm:$ss',
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 18,
                               fontWeight: FontWeight.w700,
                               color: Theme.of(context).colorScheme.primary,
                             )),
@@ -615,7 +625,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     // 開始 / 完了ボタン（全タスク共通タイマー形式）
-                    if (isUnrecorded)
+                    if (!isRecording)
                       FilledButton(
                         style: FilledButton.styleFrom(
                           minimumSize: const Size(96, 48),
@@ -653,10 +663,8 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                             _cancelAlertTimer(task.id);
                             await ref.read(taskProvider.notifier).recordTaskExecution(
                               task.id,
-                              startedAt: task.lastRecordedAt,
                               value: result.value,
                               unit: result.unit,
-                              keepLastRecordedAt: false,
                             );
                           } catch (e) {
                             if (context.mounted) {
@@ -748,19 +756,15 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
 // 睡眠・母乳のサブタイトル
 // ──────────────────────────────────────────────
 class _SleepSubtitle extends StatelessWidget {
-  final TaskEntity task;
-  final bool isRecording;
+  final DateTime? sessionStart;
 
-  const _SleepSubtitle({required this.task, required this.isRecording});
+  const _SleepSubtitle({this.sessionStart});
 
   @override
   Widget build(BuildContext context) {
-    if (!isRecording) return const SizedBox.shrink();
+    if (sessionStart == null) return const SizedBox.shrink();
 
-    final started = task.lastRecordedAt;
-    if (started == null) return const SizedBox.shrink();
-
-    final elapsed = DateTime.now().difference(started);
+    final elapsed = DateTime.now().difference(sessionStart!);
     final hh = elapsed.inHours.toString().padLeft(2, '0');
     final mm = (elapsed.inMinutes % 60).toString().padLeft(2, '0');
 
@@ -770,6 +774,65 @@ class _SleepSubtitle extends StatelessWidget {
         fontSize: 13,
         color: Theme.of(context).colorScheme.primary,
         fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────
+// バナー広告ウィジェット（無料プランのみ表示）
+// ──────────────────────────────────────────────
+class _BannerAdWidget extends StatefulWidget {
+  const _BannerAdWidget();
+
+  @override
+  State<_BannerAdWidget> createState() => _BannerAdWidgetState();
+}
+
+class _BannerAdWidgetState extends State<_BannerAdWidget> {
+  BannerAd? _bannerAd;
+  bool _isLoaded = false;
+
+  /// テスト用広告ユニットID。
+  /// リリース時は実際の広告ユニットIDに差し替えること。
+  static const _adUnitId = String.fromEnvironment(
+    'ADMOB_BANNER_ID',
+    defaultValue: 'ca-app-pub-3940256099942544/6300978111', // Android テストID
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _bannerAd = BannerAd(
+      adUnitId: _adUnitId,
+      size: AdSize.banner,
+      request: const AdRequest(),
+      listener: BannerAdListener(
+        onAdLoaded: (_) {
+          if (mounted) setState(() => _isLoaded = true);
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          _bannerAd = null;
+        },
+      ),
+    )..load();
+  }
+
+  @override
+  void dispose() {
+    _bannerAd?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isLoaded || _bannerAd == null) return const SizedBox.shrink();
+    return SafeArea(
+      child: SizedBox(
+        width: _bannerAd!.size.width.toDouble(),
+        height: _bannerAd!.size.height.toDouble(),
+        child: AdWidget(ad: _bannerAd!),
       ),
     );
   }

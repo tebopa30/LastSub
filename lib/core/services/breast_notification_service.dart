@@ -36,9 +36,11 @@ class BreastNotificationService {
     debugPrint('[BreastNotification] 初期化完了');
   }
 
-  /// [taskId] に紐付いた母乳アラートを [minutes] 分後にスケジュールする。
+  /// [taskId] に紐付いたアラートタイマーを [minutes] 分後にスケジュールする。
+  /// [taskTitle] が通知のタイトルに使用される。
   /// 同じ [taskId] の既存予約は上書きされる。
-  Future<void> scheduleBreastAlert(String taskId, int minutes) async {
+  Future<void> scheduleBreastAlert(String taskId, int minutes,
+      {String taskTitle = 'タスク'}) async {
     if (!_initialized) await initialize();
 
     final notifId = _notifId(taskId);
@@ -46,9 +48,9 @@ class BreastNotificationService {
         tz.TZDateTime.now(tz.local).add(Duration(minutes: minutes));
 
     const androidDetails = AndroidNotificationDetails(
-      'breast_timer_channel',
-      '母乳タイマー',
-      channelDescription: '母乳タイマーが設定時間に達したときの通知',
+      'task_timer_channel',
+      'タスクタイマー',
+      channelDescription: 'アラートタイマーが設定時間に達したときの通知',
       importance: Importance.high,
       priority: Priority.high,
     );
@@ -62,25 +64,84 @@ class BreastNotificationService {
 
     await _plugin.zonedSchedule(
       notifId,
-      '母乳タイマー',
-      '$minutes分が経過しました',
+      '$taskTitle アラート',
+      '設定した $minutes 分が経過しました',
       scheduledTime,
       details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
-    debugPrint('[BreastNotification] スケジュール: taskId=$taskId, ${minutes}分後, notifId=$notifId');
+    debugPrint('[Notification] タイマースケジュール: taskId=$taskId, $minutes 分後');
   }
 
-  /// [taskId] に紐付いた母乳アラート予約をキャンセルする。
+  /// 推奨間隔（秒）が経過したタイミングで通知をスケジュールする。
+  /// 記録完了後に呼び出すことで、次のサイクルの通知を設定する。
+  Future<void> scheduleIntervalAlert(
+      String taskId, String taskTitle, int intervalSeconds) async {
+    if (!_initialized) await initialize();
+
+    await cancelIntervalAlert(taskId); // 既存予約をクリア
+
+    final notifId = _intervalNotifId(taskId);
+    final scheduledTime =
+        tz.TZDateTime.now(tz.local).add(Duration(seconds: intervalSeconds));
+
+    final intervalStr = _formatIntervalSeconds(intervalSeconds);
+
+    const androidDetails = AndroidNotificationDetails(
+      'interval_alert_channel',
+      '推奨間隔通知',
+      channelDescription: '推奨間隔に達したときの通知',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+    );
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentSound: true,
+      presentBadge: false,
+    );
+    const details =
+        NotificationDetails(android: androidDetails, iOS: iosDetails);
+
+    await _plugin.zonedSchedule(
+      notifId,
+      '$taskTitle の時間です',
+      '推奨間隔（$intervalStr）が経過しました',
+      scheduledTime,
+      details,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+    );
+    debugPrint('[Notification] 推奨間隔スケジュール: taskId=$taskId, $intervalStr 後');
+  }
+
+  /// [taskId] に紐付いたアラートタイマー予約をキャンセルする。
   Future<void> cancelBreastAlert(String taskId) async {
     if (!_initialized) return;
     final notifId = _notifId(taskId);
     await _plugin.cancel(notifId);
-    debugPrint('[BreastNotification] キャンセル: taskId=$taskId, notifId=$notifId');
+    debugPrint('[Notification] タイマーキャンセル: taskId=$taskId');
   }
 
-  /// taskId を通知 ID（非負整数）に変換する
+  /// [taskId] に紐付いた推奨間隔通知をキャンセルする。
+  Future<void> cancelIntervalAlert(String taskId) async {
+    if (!_initialized) return;
+    await _plugin.cancel(_intervalNotifId(taskId));
+  }
+
+  /// taskId をアラートタイマー通知 ID に変換する（0〜99999）
   int _notifId(String taskId) => taskId.hashCode.abs() % 100000;
+
+  /// taskId を推奨間隔通知 ID に変換する（100000〜199999、タイマーIDと競合しない）
+  int _intervalNotifId(String taskId) =>
+      taskId.hashCode.abs() % 100000 + 100000;
+
+  static String _formatIntervalSeconds(int seconds) {
+    if (seconds >= 86400 && seconds % 86400 == 0) return '${seconds ~/ 86400}日';
+    if (seconds >= 3600 && seconds % 3600 == 0) return '${seconds ~/ 3600}時間';
+    if (seconds >= 60 && seconds % 60 == 0) return '${seconds ~/ 60}分';
+    return '$seconds秒';
+  }
 }

@@ -20,21 +20,33 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.tebopa.lastsub"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    // ── リリース署名設定 ──────────────────────────────────────
+    // Google Play 公開時は以下のコメントを解除し、キーストア情報を設定してください。
+    // キーストアファイルは VCS にコミットせず、環境変数や local.properties 経由で参照すること。
+    //
+    // signingConfigs {
+    //     create("release") {
+    //         storeFile = file(System.getenv("KEYSTORE_PATH") ?: "keystore/lastsub.jks")
+    //         storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+    //         keyAlias = System.getenv("KEY_ALIAS") ?: "lastsub"
+    //         keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+    //     }
+    // }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // リリース署名設定が準備できたら signingConfigs.getByName("release") に変更する
             signingConfig = signingConfigs.getByName("debug")
+            // コード圧縮・難読化（R8）
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }

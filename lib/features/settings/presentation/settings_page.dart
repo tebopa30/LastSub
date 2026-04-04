@@ -56,6 +56,19 @@ class SettingsPage extends ConsumerWidget {
 
           const Divider(),
 
+          // ── 通知 ──
+          const ListTile(
+            leading: Icon(Icons.notifications_outlined),
+            title: Text('推奨間隔通知'),
+            subtitle: Text(
+              'タスクカードで推奨間隔を設定すると、前回の記録から設定時間が経過した際に通知が届きます。'
+              'スリープ中でも通知されます。',
+            ),
+            isThreeLine: true,
+          ),
+
+          const Divider(),
+
           // ── ヘルプ ──
           ListTile(
             leading: const Icon(Icons.menu_book_outlined),

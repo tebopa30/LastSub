@@ -7,12 +7,9 @@ import '../application/graph_provider.dart';
 import '../../task/domain/task_entity.dart';
 import '../../task/domain/task_record_entity.dart';
 import '../../task/presentation/task_design_helper.dart';
+import '../../../core/providers/premium_provider.dart';
+import '../application/pdf_export_service.dart';
 import 'widgets/simple_history_chart.dart';
-
-/// プレミアムユーザーかどうかを制御するフラグ。
-/// true にすると「全期間」が解放される。
-/// 将来的にはサーバー取得や Provider に置き換える。
-const bool kIsPremiumUser = false;
 
 class HistoryPage extends ConsumerWidget {
   const HistoryPage({super.key});
@@ -21,13 +18,22 @@ class HistoryPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final groupedByTask = ref.watch(historyGroupedByTaskProvider);
     final currentPeriod = ref.watch(historyPeriodProvider);
+    final isPremium = ref.watch(isPremiumProvider);
 
     final sortedDates = groupedByTask.keys.toList()
       ..sort((a, b) => b.compareTo(a));
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('記録履歴'),
+        title: const Text('記録'),
+        actions: [
+          if (isPremium)
+            IconButton(
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              tooltip: 'PDF出力',
+              onPressed: () => PdfExportService.export(context, groupedByTask),
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -35,21 +41,19 @@ class HistoryPage extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: SegmentedButton<int?>(
-              segments: const [
-                ButtonSegment(value: 7, label: Text('7日間')),
-                ButtonSegment(value: 30, label: Text('30日間')),
+              segments: [
+                const ButtonSegment(value: 7, label: Text('7日間')),
+                const ButtonSegment(value: 30, label: Text('30日間')),
                 ButtonSegment(
                   value: null,
-                  label: Text('全期間'),
-                  icon: kIsPremiumUser
-                      ? null
-                      : Icon(Icons.lock_outline, size: 14),
+                  label: const Text('全期間'),
+                  icon: isPremium ? null : const Icon(Icons.lock_outline, size: 14),
                 ),
               ],
               selected: {currentPeriod},
               onSelectionChanged: (newSelection) {
                 final picked = newSelection.first;
-                if (picked == null && !kIsPremiumUser) {
+                if (picked == null && !isPremium) {
                   _showPremiumDialog(context);
                   return;
                 }
@@ -187,43 +191,35 @@ class HistoryPage extends ConsumerWidget {
                   ),
               ],
             ),
-            // ── 睡眠・母乳: 合計時間バッジ ──
-            if (task.title == '睡眠' ||
-                task.title == '母乳　右' ||
-                task.title == '母乳　左') ...[
-              const SizedBox(height: 4),
-              Builder(builder: (context) {
-                final isBreast =
-                    task.title == '母乳　右' || task.title == '母乳　左';
-                final totalSeconds = group.items.fold<int>(0, (sum, item) {
-                  final r = item.record;
-                  if (r.startedAt == null) return sum;
-                  return sum + r.recordedAt.difference(r.startedAt!).inSeconds;
-                });
-                if (totalSeconds <= 0) return const SizedBox.shrink();
-                final totalMinutes = totalSeconds ~/ 60;
-                String label;
-                if (isBreast) {
-                  final s = totalSeconds % 60;
-                  label = s > 0 ? '合計 $totalMinutes分$s秒' : '合計 $totalMinutes分';
-                } else {
-                  final h = totalMinutes ~/ 60;
-                  final m = totalMinutes % 60;
-                  label = h > 0 ? '合計 $h時間$m分' : '合計 $m分';
-                }
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+            // ── 合計実行時間（startedAt がある記録があれば表示）──
+            Builder(builder: (context) {
+              final totalSeconds = group.items.fold<int>(0, (sum, item) {
+                final r = item.record;
+                if (r.startedAt == null) return sum;
+                return sum + r.recordedAt.difference(r.startedAt!).inSeconds;
+              });
+              if (totalSeconds <= 0) return const SizedBox.shrink();
+              final totalMinutes = totalSeconds ~/ 60;
+              final h = totalMinutes ~/ 60;
+              final m = totalMinutes % 60;
+              final s = totalSeconds % 60;
+              final label = h > 0
+                  ? '計 $h時間$m分'
+                  : m > 0
+                      ? '計 $m分$s秒'
+                      : '計 $s秒';
+              return Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 2),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
-                );
-              }),
-            ],
+                ),
+              );
+            }),
             const SizedBox(height: 8),
             // ── 各記録行 ──
             ...group.items.asMap().entries.map((entry) {
@@ -305,8 +301,8 @@ class HistoryPage extends ConsumerWidget {
                 child: Text(ordinalLabel,
                     style: TextStyle(
                       fontSize: 12,
-                      color: Theme.of(context).colorScheme.outline,
-                      fontWeight: FontWeight.w500,
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontWeight: FontWeight.w600,
                     )),
               )
             else
@@ -387,8 +383,10 @@ class HistoryPage extends ConsumerWidget {
   String _formatDuration(Duration d) {
     final h = d.inHours;
     final m = d.inMinutes % 60;
-    if (h > 0) return '($h時間$m分)';
-    return '($m分)';
+    final s = d.inSeconds % 60;
+    if (h > 0) return '作業時間 $h時間$m分';
+    if (m > 0) return '作業時間 $m分$s秒';
+    return '作業時間 $s秒';
   }
 
   Future<void> _editRecordValue(
@@ -396,35 +394,40 @@ class HistoryPage extends ConsumerWidget {
     WidgetRef ref,
     TaskRecordEntity record,
   ) async {
-    double selected = record.value!;
+    final unit = record.unit ?? '';
+    final controller = TextEditingController(
+        text: record.value!.toStringAsFixed(
+            record.value! % 1 == 0 ? 0 : 1));
+    final title = unit.isNotEmpty ? '$unit を変更' : '数値を変更';
+
     final saved = await showDialog<double>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('容量を変更'),
-          content: DropdownButton<double>(
-            value: selected,
-            isExpanded: true,
-            items: List.generate(51, (i) => i * 10.0)
-                .map((ml) => DropdownMenuItem(
-                      value: ml,
-                      child: Text('${ml.toInt()}ml'),
-                    ))
-                .toList(),
-            onChanged: (val) {
-              if (val != null) setDialogState(() => selected = val);
-            },
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: '数値',
+            suffixText: unit.isNotEmpty ? unit : null,
+            border: const OutlineInputBorder(),
+            isDense: true,
           ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
-            FilledButton(
-                onPressed: () => Navigator.pop(ctx, selected),
-                child: const Text('保存')),
-          ],
         ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('キャンセル')),
+          FilledButton(
+              onPressed: () {
+                final v = double.tryParse(controller.text.trim());
+                if (v != null) Navigator.pop(ctx, v);
+              },
+              child: const Text('保存')),
+        ],
       ),
     );
+    controller.dispose();
     if (saved == null || !context.mounted) return;
     await ref
         .read(historyNotifierProvider.notifier)

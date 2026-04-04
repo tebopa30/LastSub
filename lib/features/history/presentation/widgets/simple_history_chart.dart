@@ -177,7 +177,7 @@ class _SimpleHistoryChartState extends State<SimpleHistoryChart> {
                         child: Text(
                           DateFormat('M/d').format(dates[index]),
                           style: TextStyle(
-                            color: cs.outline,
+                            color: cs.onSurfaceVariant,
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                           ),
@@ -269,7 +269,7 @@ class _SimpleHistoryChartState extends State<SimpleHistoryChart> {
                   children: [
                     const Expanded(
                       child: Text(
-                        'タスク実行回数の履歴',
+                        'タスク実行回数',
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ),

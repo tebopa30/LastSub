@@ -231,25 +231,63 @@ class _AddTaskModalState extends State<AddTaskModal> {
             ),
             const SizedBox(height: 32),
 
-            // ── 追加ボタン ──
-            FilledButton.icon(
-              icon: Icon(isDark ? Icons.add : Icons.add, size: 18),
-              label: Text(
-                isDark ? 'ADD TASK' : '追加する',
-                style: TextStyle(
-                  fontWeight: isDark ? FontWeight.w500 : FontWeight.bold,
-                  letterSpacing: isDark ? 2 : 0,
+            // ── ボタン行（キャンセル / 追加）──
+            Row(
+              children: [
+                // キャンセルボタン
+                Expanded(
+                  flex: 2,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(isDark ? 3 : 100),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: BorderSide(
+                        color: isDark
+                            ? const Color(0xFF444444)
+                            : Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
+                      ),
+                      foregroundColor: isDark
+                          ? const Color(0xFF888888)
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      isDark ? 'CANCEL' : 'キャンセル',
+                      style: TextStyle(
+                        fontWeight: isDark ? FontWeight.w400 : FontWeight.w500,
+                        letterSpacing: isDark ? 2 : 0,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              style: FilledButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(isDark ? 3 : 100),
+                const SizedBox(width: 12),
+                // 追加ボタン
+                Expanded(
+                  flex: 3,
+                  child: FilledButton.icon(
+                    icon: const Icon(Icons.add, size: 18),
+                    label: Text(
+                      isDark ? 'ADD TASK' : '追加する',
+                      style: TextStyle(
+                        fontWeight: isDark ? FontWeight.w500 : FontWeight.bold,
+                        letterSpacing: isDark ? 2 : 0,
+                      ),
+                    ),
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(isDark ? 3 : 100),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: isDark ? const Color(0xFF00E5FF) : null,
+                      foregroundColor: isDark ? const Color(0xFF000000) : null,
+                    ),
+                    onPressed: _submit,
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: isDark ? const Color(0xFF00E5FF) : null,
-                foregroundColor: isDark ? const Color(0xFF000000) : null,
-              ),
-              onPressed: _submit,
+              ],
             ),
           ],
         ),

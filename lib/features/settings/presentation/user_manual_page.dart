@@ -39,44 +39,53 @@ class _FreeManualTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: const [
-        _SectionHeader(title: '基本的な使い方'),
+        _SectionHeader(title: 'アプリのコンセプト'),
+        _ManualItem(
+          icon: Icons.hourglass_empty,
+          iconColor: Colors.blueGrey,
+          title: '「前回からどれくらい経ったか」を可視化する',
+          body: 'LastSub は「前回の記録完了からの経過時間」を大きく表示するアプリです。\n\n'
+              'タスクカードの大きな数字は常に「前回の完了時刻」からカウントしています。'
+              '推奨間隔を設定すると色が変わり、適切なタイミングを一目で確認できます。',
+        ),
+        _SectionHeader(title: 'タスクの基本操作'),
         _ManualItem(
           icon: Icons.play_arrow,
           iconColor: Colors.green,
-          title: '「開始」ボタン — タイマーをスタートする（睡眠・母乳タスク）',
-          body: '睡眠・母乳　右・母乳　左・カスタムタスクのカードには「開始」ボタンがあります。タップするとタイマーが始まり、経過時間がリアルタイムで表示されます。\n\n'
-              '⚠️ この時点ではまだ履歴には記録されません。「記録」ボタンが表示されている状態です。\n\n'
-              'ミルク・オムツ替え・哺乳瓶消毒・お風呂は「記録」ボタン1つのみで即時記録できます。',
+          title: '「開始」ボタン — 実行時間の計測を始める',
+          body: 'タスクの実行を開始するときにタップします。カード上に「計測中: HH:MM」が表示され、実行時間を計り始めます。\n\n'
+              '⚠️ この時点では経過時間の大きな表示は変わりません。「前回完了からの時間」は次に「完了」するまで更新されません。',
         ),
         _ManualItem(
           icon: Icons.check_circle,
           iconColor: Colors.teal,
-          title: '「記録」ボタン — 完了を履歴に保存する',
-          body: '「記録」ボタンをタップすると確認ダイアログが表示されます。「はい」を選ぶと、そのタスクの実施記録が履歴に保存されます。\n\n'
-              '保存後はタイマーがリセットされ、ボタンが再び「開始」に戻ります。次の作業に備えた状態です。\n\n'
-              '【2ステップの目的】\n'
-              '「開始」で作業の開始時刻を把握し、「記録」で完了を確定することで、いつ・何をしたかの正確な記録が残せます。例えばミルクをあげ終わってから「記録」を押すことで、次回の目安時刻の予測精度も上がります。',
+          title: '「完了」ボタン — 記録を保存し、次のサイクルを開始する',
+          body: '「完了」ボタンをタップすると確認ダイアログが表示されます。「記録」を選ぶと：\n'
+              '• 開始〜完了の実行時間が履歴に保存されます\n'
+              '• 完了時刻が「前回完了」として設定され、大きな経過時間がゼロからカウントを再開します\n\n'
+              '【数値を記録する】\n'
+              '完了ダイアログ内の「数値を記録する」をオンにすると、量や回数などを単位付きで一緒に保存できます（ml・g・cm・回 など）。',
+        ),
+        _ManualItem(
+          icon: Icons.timer_outlined,
+          iconColor: Colors.deepOrange,
+          title: 'アラートタイマー機能',
+          body: 'タスクカードで「開始」を押す前に「○分でアラート」を設定できます。\n\n'
+              '開始後は残り時間（MM:SS）がカード上に表示され、設定時間が経過するとアラートダイアログで通知されます。',
+        ),
+        _ManualItem(
+          icon: Icons.notifications_outlined,
+          iconColor: Colors.indigo,
+          title: '推奨間隔通知',
+          body: 'タスクカードの右上チップから「推奨間隔」を設定すると、前回完了から設定時間が経過した際にプッシュ通知が届きます。\n\n'
+              'スリープ中でも通知が届くため、タスクのやり忘れを防げます。',
         ),
         _ManualItem(
           icon: Icons.undo,
           iconColor: Colors.orange,
-          title: 'タイマーをリセットしたい場合',
-          body: '誤って「開始」を押してしまった場合でも、そのまま「記録」せずに放置しておくことができます。次回「開始」を押すと、タイマーは上書きされます。\n\n'
+          title: '開始を取り消したい場合',
+          body: '誤って「開始」を押してしまった場合は、そのまま放置するか、再度「開始」を押すとセッションが上書きされます。\n\n'
               '履歴画面から不要な記録を左スワイプで削除することも可能です。',
-        ),
-        _ManualItem(
-          icon: Icons.opacity,
-          iconColor: Colors.blue,
-          title: 'ミルクの量を記録する',
-          body: 'ミルクタスクのカード上にあるプルダウンで量（0〜500ml・10ml刻み）を選んでから「記録」ボタンを押してください。',
-        ),
-        _ManualItem(
-          icon: Icons.child_care,
-          iconColor: Colors.pink,
-          title: '母乳タイマー機能',
-          body: '「母乳　右」「母乳　左」のカードには、アラートを鳴らす時間（1〜20分）を選べるドロップダウンがあります。\n\n'
-              '「開始」ボタンを押すとカウントダウンが始まり、カード上に残り時間（MM:SS）が表示されます。設定時間が経過するとアラートダイアログが表示されます。\n\n'
-              '授乳完了後は「記録」ボタンで実施を保存してください（タイマーは自動で停止します）。',
         ),
         _ManualItem(
           icon: Icons.drag_handle,
@@ -84,31 +93,32 @@ class _FreeManualTab extends StatelessWidget {
           title: 'タスクの順番を並び替える',
           body: 'カードを長押ししたままドラッグすると、タスクの表示順を変更できます。',
         ),
+        _ManualItem(
+          icon: Icons.add_circle_outline,
+          iconColor: Colors.green,
+          title: 'タスクを追加・削除する',
+          body: '右下の「＋」ボタンからタスクを追加できます（無料プランは最大5件）。\n\n'
+              'タスクカードを左スワイプすると削除できます。削除前に確認ダイアログが表示されます。',
+        ),
         _SectionHeader(title: '履歴・グラフ'),
         _ManualItem(
           icon: Icons.history,
           iconColor: Colors.orange,
           title: '過去の記録を確認する',
-          body: '上部メニューの「時計」アイコンをタップすると履歴画面が開きます。日付・タスクごとにまとめて確認できます。',
+          body: '上部メニューの「時計」アイコンをタップすると履歴画面が開きます。日付・タスクごとにまとめて確認できます。\n\n'
+              '表示期間は「7日間」「30日間」から選択できます。',
         ),
         _ManualItem(
           icon: Icons.bar_chart,
           iconColor: Colors.purple,
-          title: '過去7日間のグラフ',
-          body: '履歴画面のグラフアイコンから、過去7日間のタスク実施回数をスタック棒グラフで確認できます。',
+          title: 'グラフで推移を確認する',
+          body: '履歴画面上部のグラフから、タスク実施回数の推移をスタック棒グラフで確認できます。',
         ),
         _ManualItem(
           icon: Icons.delete_sweep,
           iconColor: Colors.red,
           title: '記録を削除する',
           body: '履歴画面の各記録を左スワイプすると削除できます。',
-        ),
-        _SectionHeader(title: 'デフォルトタスク'),
-        _ManualItem(
-          icon: Icons.lock,
-          iconColor: Colors.blueGrey,
-          title: '削除できないタスク',
-          body: 'ミルク・オムツ替え（うんち）・オムツ替え（おしっこ）・哺乳瓶消毒・睡眠・お風呂・母乳　右・母乳　左の8項目はデフォルトタスクです。スワイプ削除はできません。',
         ),
       ],
     );
@@ -125,52 +135,30 @@ class _PremiumManualTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: const [
-        _SectionHeader(title: 'カスタムタスク'),
+        _SectionHeader(title: 'タスク上限の拡張'),
         _ManualItem(
           icon: Icons.add_circle,
           iconColor: Colors.green,
-          title: 'タスクを追加する',
-          body: '右下の「＋タスク追加」ボタンをタップするとモーダルが開きます。タスク名・アイコン・テーマカラーを自由に設定できます（最大10件）。',
+          title: 'タスクを最大15件まで追加',
+          body: '無料プランでは最大5件までのタスクを追加できますが、プレミアムプランでは最大15件まで追加できます。\n\n'
+              'タスク名・アイコン（31種類）・テーマカラー（12色）を自由に組み合わせられます。',
+        ),
+        _SectionHeader(title: '履歴の拡張表示'),
+        _ManualItem(
+          icon: Icons.history_toggle_off,
+          iconColor: Colors.orange,
+          title: '全期間の履歴を表示',
+          body: '履歴画面の期間選択で「全期間」が選択できるようになります。\n\n'
+              '無料プランでは「7日間」「30日間」のみ表示可能です。',
         ),
         _ManualItem(
-          icon: Icons.swipe_left,
+          icon: Icons.picture_as_pdf_outlined,
           iconColor: Colors.red,
-          title: 'タスクを削除する',
-          body: 'カスタムタスクは左スワイプで削除できます。削除前に確認ダイアログが表示されます。',
-        ),
-        _SectionHeader(title: 'クラウド同期'),
-        _ManualItem(
-          icon: Icons.account_circle,
-          iconColor: Colors.blue,
-          title: 'Googleアカウントでログイン',
-          body: '同期ボタン（↻）をタップすると、Googleアカウントでのサインインを促されます。ログイン後にデータが安全にクラウドへ保存されます。',
-        ),
-        _ManualItem(
-          icon: Icons.sync,
-          iconColor: Colors.teal,
-          title: '手動同期',
-          body: 'ログイン後はいつでも同期ボタンを押すことで、端末とクラウドのデータを最新状態に同期できます。機種変更時のデータ引き継ぎにも使えます。',
-        ),
-        _SectionHeader(title: 'AI予測・分析'),
-        _ManualItem(
-          icon: Icons.auto_graph,
-          iconColor: Colors.purple,
-          title: '次回予測チップ',
-          body: '記録が2件以上あるタスクには、過去の間隔を学習した「次は〇〇時頃」という予測が表示されます。',
-        ),
-        _ManualItem(
-          icon: Icons.bar_chart,
-          iconColor: Colors.indigo,
-          title: '全タスクのグラフ表示',
-          body: '無料版では基本5タスクのみ表示されるグラフが、プレミアムではカスタムタスクを含む全タスクで表示されます。',
+          title: '履歴をPDFで出力・共有',
+          body: '履歴画面の右上に「PDF出力」ボタンが表示されます。タップすると、表示中の期間のタスク実行履歴をPDFファイルとして保存・共有できます。\n\n'
+              '記録時刻・開始時刻・経過時間・数値が表形式でまとめられます。',
         ),
         _SectionHeader(title: 'その他'),
-        _ManualItem(
-          icon: Icons.child_care,
-          iconColor: Colors.pink,
-          title: '成長記録の管理',
-          body: '上部の「子どもアイコン」から身長・体重・頭囲・予防接種などを記録できます。時系列で変化を確認できます。',
-        ),
         _ManualItem(
           icon: Icons.block,
           iconColor: Colors.grey,
