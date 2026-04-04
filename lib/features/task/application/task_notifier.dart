@@ -133,6 +133,31 @@ class TaskNotifier extends _$TaskNotifier {
         return task;
       }).toList());
     }
+
+    // 間隔を設定/変更したとき、lastRecordedAt があれば即座に通知を再スケジュール
+    final task = state.value?.where((t) => t.id == taskId).firstOrNull;
+    if (task == null) return;
+
+    // まず既存の通知をキャンセル
+    await BreastNotificationService.instance.cancelIntervalAlert(taskId);
+
+    if (days == null || days <= 0) return; // クリア時は通知も解除のみ
+
+    final lastRecorded = task.lastRecordedAt;
+    if (lastRecorded == null) return; // 未記録タスクは記録後にスケジュール
+
+    final nextTime = lastRecorded.add(Duration(seconds: days));
+    final now = DateTime.now();
+    if (nextTime.isAfter(now)) {
+      // 次の推奨時刻がまだ未来 → その時刻まで待って通知
+      final secondsUntilNext = nextTime.difference(now).inSeconds;
+      await BreastNotificationService.instance
+          .scheduleIntervalAlert(taskId, task.title, secondsUntilNext);
+    } else {
+      // すでに推奨時刻を過ぎている → 即時通知（5秒後）
+      await BreastNotificationService.instance
+          .scheduleIntervalAlert(taskId, task.title, 5);
+    }
   }
 
   /// タスクの表示順を並び替える
