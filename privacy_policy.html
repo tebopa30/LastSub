@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>プライバシーポリシー — LastSub</title>
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --surface: #ffffff;
+      --accent: #00bcd4;
+      --text: #212630;
+      --muted: #737d8c;
+      --border: #e1e4e8;
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans',
+                   'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.8;
+      padding: 24px 16px 64px;
+    }
+
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      overflow: hidden;
+    }
+
+    /* ヘッダー */
+    header {
+      background: #121217;
+      padding: 24px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header .accent-bar {
+      width: 4px;
+      height: 28px;
+      background: var(--accent);
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    header h1 {
+      color: #ffffff;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    header .app-sub {
+      color: #9aa0ab;
+      font-size: 13px;
+      font-weight: 400;
+      margin-top: 2px;
+    }
+
+    .accent-line {
+      height: 3px;
+      background: var(--accent);
+    }
+
+    /* 本文 */
+    .content {
+      padding: 32px;
+    }
+
+    .intro {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    section {
+      margin-bottom: 28px;
+    }
+
+    section h2 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+      padding-left: 10px;
+      border-left: 3px solid var(--accent);
+    }
+
+    section p,
+    section ul {
+      font-size: 14px;
+      color: #4a5568;
+      padding-left: 12px;
+    }
+
+    section ul {
+      list-style: none;
+      padding-left: 12px;
+    }
+
+    section ul li::before {
+      content: "・";
+      color: var(--accent);
+    }
+
+    section ul li {
+      margin-bottom: 4px;
+    }
+
+    a {
+      color: var(--accent);
+      word-break: break-all;
+    }
+
+    /* フッター */
+    footer {
+      padding: 20px 32px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="accent-bar"></div>
+      <div>
+        <h1>プライバシーポリシー</h1>
+        <div class="app-sub">LastSub</div>
+      </div>
+    </header>
+    <div class="accent-line"></div>
+
+    <div class="content">
+      <p class="intro">
+        本アプリ「LastSub」（以下「本アプリ」）は、ユーザーのプライバシーを尊重し、
+        以下の方針に基づいて個人情報を取り扱います。
+      </p>
+
+      <section>
+        <h2>1. 収集する情報</h2>
+        <ul>
+          <li>広告配信のための端末識別情報（Google AdMob による）</li>
+          <li>アプリの利用状況データ（クラッシュレポートなど）</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>2. 収集しない情報</h2>
+        <p>
+          本アプリが記録するタスク履歴・設定情報はすべてお使いの端末内にのみ保存されます。
+          氏名・メールアドレス・位置情報などの個人を特定できる情報は一切収集しません。
+        </p>
+      </section>
+
+      <section>
+        <h2>3. 情報の利用目的</h2>
+        <ul>
+          <li>本アプリのサービス提供および機能改善のため</li>
+          <li>広告配信のため（無料プランのみ）</li>
+          <li>アプリの安定性向上・不具合の調査のため</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>4. 広告について</h2>
+        <p>
+          本アプリの無料プランでは Google AdMob による広告を表示しています。
+          AdMob はユーザーの興味・関心に基づいた広告を配信するため、端末の広告識別子等を利用する場合があります。
+          広告のパーソナライズ設定は端末の設定画面から変更できます。
+        </p>
+        <br>
+        <p>
+          Google のプライバシーポリシー：<br>
+          <a href="https://policies.google.com/privacy" target="_blank">https://policies.google.com/privacy</a>
+        </p>
+        <br>
+        <p>
+          Google AdMob の広告に関する詳細：<br>
+          <a href="https://policies.google.com/technologies/ads" target="_blank">https://policies.google.com/technologies/ads</a>
+        </p>
+      </section>
+
+      <section>
+        <h2>5. 第三者への情報提供</h2>
+        <p>
+          本アプリは法令に基づく場合を除き、収集した情報を第三者に提供・販売することはありません。
+          ただし広告配信のため、Google AdMob に端末識別情報が送信される場合があります。
+        </p>
+      </section>
+
+      <section>
+        <h2>6. プレミアムプランについて</h2>
+        <p>
+          プレミアムプランのご購入は Google Play の課金システムを通じて行われます。
+          決済情報は Google Play が管理するものであり、本アプリは決済情報を収集・保存しません。
+        </p>
+      </section>
+
+      <section>
+        <h2>7. ローカル通知について</h2>
+        <p>
+          本アプリはタスクの推奨間隔およびアラートタイマーのためにローカル通知機能を使用します。
+          通知は端末内でのみ処理され、外部サーバーへのデータ送信は行いません。
+        </p>
+      </section>
+
+      <section>
+        <h2>8. プライバシーポリシーの変更</h2>
+        <p>
+          本ポリシーの内容は、必要に応じて予告なく変更される場合があります。
+          変更後のポリシーはアプリ内の本画面および本ページに掲載した時点から効力を生じます。
+        </p>
+      </section>
+
+      <section>
+        <h2>9. お問い合わせ</h2>
+        <p>
+          本ポリシーに関するご質問・ご意見は下記までお問い合わせください。<br><br>
+          メール：<a href="mailto:tebopa30@gmail.com">tebopa30@gmail.com</a>
+        </p>
+      </section>
+    </div>
+
+    <footer>
+      <span>LastSub</span>
+      <span>制定日：2026年4月</span>
+    </footer>
+  </div>
+</body>
+</html>

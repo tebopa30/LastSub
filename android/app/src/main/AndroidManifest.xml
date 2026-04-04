@@ -1,11 +1,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- ネットワーク（AdMob 広告配信に必要） -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <!-- Android 13+ プッシュ通知権限 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <!-- 正確なアラーム（推奨間隔通知）権限 -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
-    <!-- 正確なアラームの代替（Android 12+） -->
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+
+    <!-- 通知のデバイス再起動後の復元に必要 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
+    <!-- SCHEDULE_EXACT_ALARM / USE_EXACT_ALARM は inexactAllowWhileIdle を使うため不要。
+         宣言すると Android 12+ で SecurityException が発生するリスクがあるため除外する。 -->
 
     <application
         android:label="LastSub"
@@ -37,6 +42,7 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

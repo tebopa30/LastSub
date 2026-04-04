@@ -6,7 +6,8 @@
       "Bash(flutter pub:*)",
       "Bash(flutter analyze:*)",
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(p['name'], p.get\\('version','?'\\)\\) for p in d['packages'] if 'riverpod' in p['name'].lower\\(\\)]\")",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(flutter build:*)"
     ]
   }
 }

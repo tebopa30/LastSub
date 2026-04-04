@@ -1,8 +1,17 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// 1. key.properties の読み込み
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
 android {
@@ -13,10 +22,12 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+        // 警告が出ていた箇所を修正
+        jvmTarget = "17"
     }
 
     defaultConfig {
@@ -27,24 +38,21 @@ android {
         versionName = flutter.versionName
     }
 
-    // ── リリース署名設定 ──────────────────────────────────────
-    // Google Play 公開時は以下のコメントを解除し、キーストア情報を設定してください。
-    // キーストアファイルは VCS にコミットせず、環境変数や local.properties 経由で参照すること。
-    //
-    // signingConfigs {
-    //     create("release") {
-    //         storeFile = file(System.getenv("KEYSTORE_PATH") ?: "keystore/lastsub.jks")
-    //         storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-    //         keyAlias = System.getenv("KEY_ALIAS") ?: "lastsub"
-    //         keyPassword = System.getenv("KEY_PASSWORD") ?: ""
-    //     }
-    // }
+    // 2. 署名設定を定義
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+            storeFile = keystoreProperties.getProperty("storeFile")?.let { path -> file(path) }
+            storePassword = keystoreProperties.getProperty("storePassword")
+        }
+    }
 
     buildTypes {
         release {
-            // リリース署名設定が準備できたら signingConfigs.getByName("release") に変更する
-            signingConfig = signingConfigs.getByName("debug")
-            // コード圧縮・難読化（R8）
+            // 3. release 用の署名設定を適用
+            signingConfig = signingConfigs.getByName("release")
+            
             isMinifyEnabled = false
             isShrinkResources = false
         }
@@ -53,4 +61,8 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
 }
