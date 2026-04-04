@@ -12,6 +12,7 @@ import 'task_design_helper.dart';
 import 'widgets/add_task_modal.dart';
 import '../../history/presentation/history_page.dart';
 import '../../settings/presentation/settings_page.dart';
+import '../../premium/presentation/premium_page.dart';
 
 // ──────────────────────────────────────────────
 // 経過時間に応じたステータスカラー
@@ -60,10 +61,10 @@ String _formatElapsed(DateTime? last) {
   final hours = elapsed.inHours % 24;
   final minutes = elapsed.inMinutes % 60;
 
-  if (days >= 7) return '$days日経過';
-  if (days >= 1) return '$days日 $hours時間経過';
-  if (hours >= 1) return '$hours時間 $minutes分経過';
-  return '$minutes分経過';
+  if (days >= 7) return '前回から $days日経過';
+  if (days >= 1) return '前回から $days日 $hours時間経過';
+  if (hours >= 1) return '前回から $hours時間 $minutes分経過';
+  return '前回から $minutes分経過';
 }
 
 // ──────────────────────────────────────────────
@@ -112,20 +113,27 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
   // ── 母乳タイマー ──────────────────────────
   void _startAlertTimer(String taskId, int minutes) {
     _cancelAlertTimer(taskId);
+    if (!mounted) return;
     setState(() => _alertTimerRemaining[taskId] = minutes * 60);
     final tasks = ref.read(taskProvider).value ?? [];
     final taskTitle = tasks.where((t) => t.id == taskId).firstOrNull?.title ?? 'タスク';
     BreastNotificationService.instance.scheduleBreastAlert(taskId, minutes, taskTitle: taskTitle);
     _alertTimers[taskId] = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (!mounted) { t.cancel(); return; }
+      if (!mounted) {
+        t.cancel();
+        _alertTimers.remove(taskId);
+        return;
+      }
       final remaining = (_alertTimerRemaining[taskId] ?? 0) - 1;
       if (remaining <= 0) {
         t.cancel();
         _alertTimers.remove(taskId);
-        setState(() => _alertTimerRemaining.remove(taskId));
-        _showAlertTimerAlert(taskId);
+        if (mounted) {
+          setState(() => _alertTimerRemaining.remove(taskId));
+          _showAlertTimerAlert(taskId);
+        }
       } else {
-        setState(() => _alertTimerRemaining[taskId] = remaining);
+        if (mounted) setState(() => _alertTimerRemaining[taskId] = remaining);
       }
     });
   }
@@ -133,7 +141,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
   void _cancelAlertTimer(String taskId) {
     _alertTimers[taskId]?.cancel();
     _alertTimers.remove(taskId);
-    if (_alertTimerRemaining.containsKey(taskId)) {
+    if (mounted && _alertTimerRemaining.containsKey(taskId)) {
       setState(() => _alertTimerRemaining.remove(taskId));
     }
     BreastNotificationService.instance.cancelBreastAlert(taskId);
@@ -147,8 +155,10 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('$title タイマー終了'),
-        content: const Text('設定時間が経過しました。\n記録ボタンで完了してください。'),
+        title: Text('$title タイマー終了',
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+        content: const Text('設定時間が経過しました。\n記録ボタンで完了してください。',
+            style: TextStyle(fontSize: 16)),
         actions: [
           FilledButton(
             onPressed: () => Navigator.pop(ctx),
@@ -364,6 +374,15 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
           style: Theme.of(context).appBarTheme.titleTextStyle,
         ),
         actions: [
+          if (!isPremium)
+            IconButton(
+              icon: const Icon(Icons.workspace_premium),
+              tooltip: 'プレミアムプラン',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PremiumPage()),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.history),
             tooltip: '記録履歴',
@@ -514,7 +533,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                                   ? _formatIntervalSeconds(task.recommendedIntervalDays!)
                                   : '設定',
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w600,
                                 color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
@@ -657,7 +676,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                         ),
                         onPressed: _isProcessing ? null : () async {
                           final result = await _showCompleteDialog(context);
-                          if (result == null) return;
+                          if (result == null || !mounted) return;
                           setState(() => _isProcessing = true);
                           try {
                             _cancelAlertTimer(task.id);

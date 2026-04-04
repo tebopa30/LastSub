@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/theme_provider.dart';
+import '../../../core/providers/premium_provider.dart';
+import '../../premium/presentation/premium_page.dart';
 import 'privacy_policy_page.dart';
 import 'user_manual_page.dart';
 
@@ -11,6 +13,7 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
     final isClassicSleek = themeMode == ThemeMode.dark;
+    final isPremium = ref.watch(isPremiumProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -18,6 +21,32 @@ class SettingsPage extends ConsumerWidget {
       ),
       body: ListView(
         children: [
+          // ── プレミアムプラン ──
+          ListTile(
+            leading: Icon(
+              Icons.workspace_premium,
+              color: isPremium
+                  ? const Color(0xFF00BCD4)
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            title: Text(isPremium ? 'プレミアムプラン（有効中）' : 'プレミアムプランを見る'),
+            subtitle: Text(
+              isPremium ? '広告非表示・タスク15件・PDF出力が有効です' : '広告非表示・タスク上限拡張・PDF出力',
+              style: TextStyle(
+                  fontSize: 12,
+                  color: isPremium
+                      ? const Color(0xFF00BCD4)
+                      : Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PremiumPage()),
+            ),
+          ),
+
+          const Divider(),
+
           // ── テーマ設定 ──
           const ListTile(
             title: Text('テーマ'),
@@ -56,23 +85,10 @@ class SettingsPage extends ConsumerWidget {
 
           const Divider(),
 
-          // ── 通知 ──
-          const ListTile(
-            leading: Icon(Icons.notifications_outlined),
-            title: Text('推奨間隔通知'),
-            subtitle: Text(
-              'タスクカードで推奨間隔を設定すると、前回の記録から設定時間が経過した際に通知が届きます。'
-              'スリープ中でも通知されます。',
-            ),
-            isThreeLine: true,
-          ),
-
-          const Divider(),
-
           // ── ヘルプ ──
           ListTile(
             leading: const Icon(Icons.menu_book_outlined),
-            title: const Text('使い方'),
+            title: const Text('アプリガイド'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.push(
               context,
