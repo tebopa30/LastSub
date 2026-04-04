@@ -2,6 +2,8 @@
 
     <!-- ネットワーク（AdMob 広告配信に必要） -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Google Play 課金 -->
+    <uses-permission android:name="com.android.vending.BILLING"/>
 
     <!-- Android 13+ プッシュ通知権限 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>

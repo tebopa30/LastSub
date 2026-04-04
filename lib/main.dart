@@ -7,6 +7,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'core/services/breast_notification_service.dart';
 import 'core/providers/notification_service.dart';
 import 'core/providers/navigator_key_provider.dart';
+import 'core/providers/purchase_provider.dart';
 import 'core/providers/shared_preferences_provider.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/theme/app_theme.dart';
@@ -48,6 +49,7 @@ class LastSubApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(notificationServiceProvider);
+    ref.watch(purchaseProvider);
 
     final navigatorKey = ref.watch(navigatorKeyProvider);
     final themeMode = ref.watch(themeModeProvider);

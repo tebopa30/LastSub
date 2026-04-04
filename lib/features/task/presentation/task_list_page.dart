@@ -84,8 +84,11 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
   /// 連打防止フラグ
   bool _isProcessing = false;
 
-  /// アラートタイマー設定時間（taskId → 分）
-  final Map<String, int> _alertTimerMinutes = {};
+  /// アラートタイマー設定値（taskId → 数値）
+  final Map<String, int> _alertTimerValue = {};
+
+  /// アラートタイマー単位（taskId → '秒'|'分'|'時間'|'日'）
+  final Map<String, String> _alertTimerUnit = {};
 
   /// アラートカウントダウン残り秒（taskId → 秒）
   final Map<String, int> _alertTimerRemaining = {};
@@ -110,14 +113,89 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
     super.dispose();
   }
 
-  // ── 母乳タイマー ──────────────────────────
-  void _startAlertTimer(String taskId, int minutes) {
+  // ── アラートタイマー ──────────────────────
+  static const _alertUnits = ['秒', '分', '時間', '日'];
+  static const _alertUnitToSeconds = {'秒': 1, '分': 60, '時間': 3600, '日': 86400};
+
+  String _formatAlertSetting(String taskId) {
+    final v = _alertTimerValue[taskId] ?? 5;
+    final u = _alertTimerUnit[taskId] ?? '分';
+    return '$v$u';
+  }
+
+  Future<void> _showAlertTimerDialog(String taskId) async {
+    final currentValue = _alertTimerValue[taskId] ?? 5;
+    final currentUnit = _alertTimerUnit[taskId] ?? '分';
+    String selectedUnit = currentUnit;
+    final controller = TextEditingController(text: currentValue.toString());
+
+    final result = await showDialog<({int value, String unit})?>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('アラート時間を設定'),
+          content: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: '数値',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              DropdownButton<String>(
+                value: selectedUnit,
+                isDense: true,
+                items: _alertUnits
+                    .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) setDialogState(() => selectedUnit = v);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('キャンセル'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final n = int.tryParse(controller.text.trim());
+                if (n == null || n <= 0) return;
+                Navigator.pop(ctx, (value: n, unit: selectedUnit));
+              },
+              child: const Text('設定'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+    if (result == null || !mounted) return;
+    setState(() {
+      _alertTimerValue[taskId] = result.value;
+      _alertTimerUnit[taskId] = result.unit;
+    });
+  }
+
+  void _startAlertTimer(String taskId) {
+    final value = _alertTimerValue[taskId] ?? 5;
+    final unit = _alertTimerUnit[taskId] ?? '分';
+    final totalSeconds = value * (_alertUnitToSeconds[unit] ?? 60);
     _cancelAlertTimer(taskId);
     if (!mounted) return;
-    setState(() => _alertTimerRemaining[taskId] = minutes * 60);
+    setState(() => _alertTimerRemaining[taskId] = totalSeconds);
     final tasks = ref.read(taskProvider).value ?? [];
     final taskTitle = tasks.where((t) => t.id == taskId).firstOrNull?.title ?? 'タスク';
-    BreastNotificationService.instance.scheduleBreastAlert(taskId, minutes, taskTitle: taskTitle);
+    BreastNotificationService.instance.scheduleBreastAlert(taskId, totalSeconds, taskTitle: taskTitle);
     _alertTimers[taskId] = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) {
         t.cancel();
@@ -342,6 +420,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
     controller.dispose();
 
     if (result == null) return; // キャンセル
+    if (!mounted) return;
     final seconds = result == -1 ? null : result;
     await ref.read(taskProvider.notifier).updateRecommendedInterval(task.id, seconds);
   }
@@ -554,7 +633,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                     children: [
                       Container(
                         width: 5,
-                        height: 52,
+                        height: 32,
                         margin: const EdgeInsets.only(right: 10),
                         decoration: BoxDecoration(
                           color: statusColor,
@@ -564,7 +643,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                       Text(
                         elapsedText,
                         style: TextStyle(
-                          fontSize: 48,
+                          fontSize: 22,
                           fontWeight: FontWeight.w800,
                           color: isUnrecorded
                               ? Theme.of(context).colorScheme.outline
@@ -589,23 +668,22 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                           size: 13,
                           color: Theme.of(context).colorScheme.onSurfaceVariant),
                       const SizedBox(width: 4),
-                      DropdownButton<int>(
-                        value: _alertTimerMinutes[task.id] ?? 5,
-                        isDense: true,
-                        underline: const SizedBox.shrink(),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).colorScheme.onSurface,
+                      GestureDetector(
+                        onTap: () => _showAlertTimerDialog(task.id),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _formatAlertSetting(task.id),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.primary,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ],
                         ),
-                        items: List.generate(20, (i) => i + 1)
-                            .map((m) => DropdownMenuItem(
-                                  value: m,
-                                  child: Text('$m分'),
-                                ))
-                            .toList(),
-                        onChanged: (val) {
-                          if (val != null) setState(() => _alertTimerMinutes[task.id] = val);
-                        },
                       ),
                       Text(' でアラート',
                           style: TextStyle(
@@ -655,7 +733,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                           setState(() => _isProcessing = true);
                           try {
                             await ref.read(taskProvider.notifier).startTask(task.id);
-                            _startAlertTimer(task.id, _alertTimerMinutes[task.id] ?? 5);
+                            _startAlertTimer(task.id);
                           } catch (e) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(

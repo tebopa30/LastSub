@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/premium_provider.dart';
+import '../../../core/providers/purchase_provider.dart';
 
 class PremiumPage extends ConsumerWidget {
   const PremiumPage({super.key});
@@ -8,6 +9,7 @@ class PremiumPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isPremium = ref.watch(isPremiumProvider);
+    final purchaseAsync = ref.watch(purchaseProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
 
@@ -122,14 +124,52 @@ class PremiumPage extends ConsumerWidget {
 
                 const SizedBox(height: 32),
 
-                // ── アップグレードボタン ──────────────────────
+                // ── 購入 / 有効中 ボタン ──────────────────────
                 if (!isPremium) ...[
-                  _UpgradeButton(ref: ref, isDark: isDark),
+                  purchaseAsync.when(
+                    loading: () => const Center(
+                        child: CircularProgressIndicator()),
+                    error: (e, _) => _UnavailableMessage(cs: cs),
+                    data: (purchaseState) {
+                      switch (purchaseState.status) {
+                        case IAPStatus.unavailable:
+                          return _UnavailableMessage(cs: cs);
+                        case IAPStatus.purchasing:
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        case IAPStatus.error:
+                          return Column(
+                            children: [
+                              _ErrorMessage(
+                                  message: purchaseState.errorMessage ??
+                                      '購入処理中にエラーが発生しました',
+                                  cs: cs),
+                              const SizedBox(height: 12),
+                              _UpgradeButton(
+                                  ref: ref,
+                                  isDark: isDark,
+                                  productDetails:
+                                      purchaseState.productDetails),
+                            ],
+                          );
+                        case IAPStatus.loading:
+                        case IAPStatus.ready:
+                          return _UpgradeButton(
+                              ref: ref,
+                              isDark: isDark,
+                              productDetails: purchaseState.productDetails);
+                      }
+                    },
+                  ),
                   const SizedBox(height: 12),
                   Center(
-                    child: Text(
-                      '※ 現在はテスト用のため無料で有効化できます',
-                      style: TextStyle(fontSize: 11, color: cs.outline),
+                    child: TextButton(
+                      onPressed: () =>
+                          ref.read(purchaseProvider.notifier).restorePurchases(),
+                      child: Text(
+                        '購入を復元する',
+                        style: TextStyle(fontSize: 13, color: cs.outline),
+                      ),
                     ),
                   ),
                 ] else ...[
@@ -251,17 +291,22 @@ class _BenefitCard extends StatelessWidget {
 class _UpgradeButton extends StatelessWidget {
   final WidgetRef ref;
   final bool isDark;
-  const _UpgradeButton({required this.ref, required this.isDark});
+  final dynamic productDetails; // ProductDetails?
+
+  const _UpgradeButton(
+      {required this.ref, required this.isDark, this.productDetails});
 
   @override
   Widget build(BuildContext context) {
+    final priceLabel = productDetails?.price ?? '¥200/月';
+
     return SizedBox(
       width: double.infinity,
       child: FilledButton.icon(
         icon: const Icon(Icons.workspace_premium, size: 20),
-        label: const Text(
-          'プレミアムへアップグレード',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        label: Text(
+          'プレミアムへアップグレード ($priceLabel)',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 18),
@@ -272,15 +317,54 @@ class _UpgradeButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(isDark ? 4 : 16),
           ),
         ),
-        onPressed: () async {
-          await ref.read(isPremiumProvider.notifier).setPremium(true);
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('プレミアムプランが有効になりました')),
-            );
-            Navigator.pop(context);
-          }
-        },
+        onPressed: productDetails == null
+            ? null
+            : () => ref.read(purchaseProvider.notifier).buyPremium(),
+      ),
+    );
+  }
+}
+
+// ── 購入不可メッセージ ─────────────────────────────────
+class _UnavailableMessage extends StatelessWidget {
+  final ColorScheme cs;
+  const _UnavailableMessage({required this.cs});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.errorContainer.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        '現在この端末では購入できません。\nGoogle Play / App Store が利用可能な状態でお試しください。',
+        style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, height: 1.5),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+}
+
+// ── エラーメッセージ ─────────────────────────────────
+class _ErrorMessage extends StatelessWidget {
+  final String message;
+  final ColorScheme cs;
+  const _ErrorMessage({required this.message, required this.cs});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.errorContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        message,
+        style: TextStyle(fontSize: 12, color: cs.error),
+        textAlign: TextAlign.center,
       ),
     );
   }

@@ -33,20 +33,29 @@ class BreastNotificationService {
     );
 
     await _plugin.initialize(settings);
+
+    // Android 13+ ではランタイムで通知権限を要求する
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    await androidPlugin?.requestNotificationsPermission();
+
     _initialized = true;
     debugPrint('[BreastNotification] 初期化完了');
   }
 
-  /// [taskId] に紐付いたアラートタイマーを [minutes] 分後にスケジュールする。
+  /// [taskId] に紐付いたアラートタイマーを [seconds] 秒後にスケジュールする。
   /// [taskTitle] が通知のタイトルに使用される。
   /// 同じ [taskId] の既存予約は上書きされる。
-  Future<void> scheduleBreastAlert(String taskId, int minutes,
+  Future<void> scheduleBreastAlert(String taskId, int seconds,
       {String taskTitle = 'タスク'}) async {
     if (!_initialized) await initialize();
 
     final notifId = _notifId(taskId);
     final scheduledTime =
-        tz.TZDateTime.now(tz.local).add(Duration(minutes: minutes));
+        tz.TZDateTime.now(tz.local).add(Duration(seconds: seconds));
+
+    final timeLabel = _formatIntervalSeconds(seconds);
 
     const androidDetails = AndroidNotificationDetails(
       'task_timer_channel',
@@ -66,14 +75,14 @@ class BreastNotificationService {
     await _plugin.zonedSchedule(
       notifId,
       '$taskTitle アラート',
-      '設定した $minutes 分が経過しました',
+      '設定した $timeLabel が経過しました',
       scheduledTime,
       details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
-    debugPrint('[Notification] タイマースケジュール: taskId=$taskId, $minutes 分後');
+    debugPrint('[Notification] タイマースケジュール: taskId=$taskId, $timeLabel 後');
   }
 
   /// 推奨間隔（秒）が経過したタイミングで通知をスケジュールする。

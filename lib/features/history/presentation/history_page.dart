@@ -11,11 +11,16 @@ import '../../../core/providers/premium_provider.dart';
 import '../application/pdf_export_service.dart';
 import 'widgets/simple_history_chart.dart';
 
-class HistoryPage extends ConsumerWidget {
+class HistoryPage extends ConsumerStatefulWidget {
   const HistoryPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HistoryPage> createState() => _HistoryPageState();
+}
+
+class _HistoryPageState extends ConsumerState<HistoryPage> {
+  @override
+  Widget build(BuildContext context) {
     final groupedByTask = ref.watch(historyGroupedByTaskProvider);
     final currentPeriod = ref.watch(historyPeriodProvider);
     final isPremium = ref.watch(isPremiumProvider);
@@ -54,7 +59,7 @@ class HistoryPage extends ConsumerWidget {
               onSelectionChanged: (newSelection) {
                 final picked = newSelection.first;
                 if (picked == null && !isPremium) {
-                  _showPremiumDialog(context);
+                  _showPremiumDialog();
                   return;
                 }
                 ref.read(historyPeriodProvider.notifier).setPeriod(picked);
@@ -90,8 +95,7 @@ class HistoryPage extends ConsumerWidget {
                     itemBuilder: (context, index) {
                       final dateStr = sortedDates[index];
                       final items = groupedByTask[dateStr]!;
-                      return _buildDateSection(
-                          context, ref, dateStr, items, index == 0);
+                      return _buildDateSection(dateStr, items, index == 0);
                     },
                   ),
           ),
@@ -100,7 +104,7 @@ class HistoryPage extends ConsumerWidget {
     );
   }
 
-  void _showPremiumDialog(BuildContext context) {
+  void _showPremiumDialog() {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -120,8 +124,6 @@ class HistoryPage extends ConsumerWidget {
   }
 
   Widget _buildDateSection(
-    BuildContext context,
-    WidgetRef ref,
     String dateStr,
     List<GroupedTaskItem> groupedItems,
     bool isFirst,
@@ -135,17 +137,13 @@ class HistoryPage extends ConsumerWidget {
         ),
         initiallyExpanded: isFirst,
         children: groupedItems
-            .map((group) => _buildGroupedTaskCard(context, ref, group))
+            .map((group) => _buildGroupedTaskCard(group))
             .toList(),
       ),
     );
   }
 
-  Widget _buildGroupedTaskCard(
-    BuildContext context,
-    WidgetRef ref,
-    GroupedTaskItem group,
-  ) {
+  Widget _buildGroupedTaskCard(GroupedTaskItem group) {
     final task = group.task;
     final design = getTaskDesignInfo(task.title,
         iconName: task.iconName,
@@ -191,7 +189,7 @@ class HistoryPage extends ConsumerWidget {
                   ),
               ],
             ),
-            // ── 合計実行時間（startedAt がある記録があれば表示）──
+            // ── 合計実行時間 ──
             Builder(builder: (context) {
               final totalSeconds = group.items.fold<int>(0, (sum, item) {
                 final r = item.record;
@@ -229,8 +227,6 @@ class HistoryPage extends ConsumerWidget {
               final timeStr = DateFormat('HH:mm').format(record.recordedAt);
               final ordinalLabel = group.count > 1 ? '$ordinal回目' : null;
               return _buildRecordRow(
-                context,
-                ref,
                 record: record,
                 task: task,
                 timeStr: timeStr,
@@ -243,9 +239,7 @@ class HistoryPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecordRow(
-    BuildContext context,
-    WidgetRef ref, {
+  Widget _buildRecordRow({
     required TaskRecordEntity record,
     required TaskEntity task,
     required String timeStr,
@@ -289,6 +283,7 @@ class HistoryPage extends ConsumerWidget {
             false;
       },
       onDismissed: (_) {
+        if (!mounted) return;
         ref.read(historyNotifierProvider.notifier).deleteRecord(record.id);
       },
       child: Padding(
@@ -308,7 +303,7 @@ class HistoryPage extends ConsumerWidget {
             else
               const SizedBox(width: 4),
             InkWell(
-              onTap: () => _editRecordTime(context, ref, record),
+              onTap: () => _editRecordTime(record),
               borderRadius: BorderRadius.circular(4),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -341,7 +336,7 @@ class HistoryPage extends ConsumerWidget {
             if (record.value != null) ...[
               const SizedBox(width: 6),
               InkWell(
-                onTap: () => _editRecordValue(context, ref, record),
+                onTap: () => _editRecordValue(record),
                 borderRadius: BorderRadius.circular(4),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -389,11 +384,7 @@ class HistoryPage extends ConsumerWidget {
     return '作業時間 $s秒';
   }
 
-  Future<void> _editRecordValue(
-    BuildContext context,
-    WidgetRef ref,
-    TaskRecordEntity record,
-  ) async {
+  Future<void> _editRecordValue(TaskRecordEntity record) async {
     final unit = record.unit ?? '';
     final controller = TextEditingController(
         text: record.value!.toStringAsFixed(
@@ -428,30 +419,26 @@ class HistoryPage extends ConsumerWidget {
       ),
     );
     controller.dispose();
-    if (saved == null || !context.mounted) return;
+    if (saved == null || !mounted) return;
     await ref
         .read(historyNotifierProvider.notifier)
         .updateRecordValue(record, saved);
   }
 
-  Future<void> _editRecordTime(
-    BuildContext context,
-    WidgetRef ref,
-    TaskRecordEntity record,
-  ) async {
+  Future<void> _editRecordTime(TaskRecordEntity record) async {
     final pickedDate = await showDatePicker(
       context: context,
       initialDate: record.recordedAt,
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 1)),
     );
-    if (pickedDate == null || !context.mounted) return;
+    if (pickedDate == null || !mounted) return;
 
     final pickedTime = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(record.recordedAt),
     );
-    if (pickedTime == null || !context.mounted) return;
+    if (pickedTime == null || !mounted) return;
 
     final newDateTime = DateTime(
       pickedDate.year, pickedDate.month, pickedDate.day,
