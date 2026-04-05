@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // Added for kDebugMode
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/premium_provider.dart';
 import '../../../core/providers/purchase_provider.dart';
@@ -173,7 +174,7 @@ class PremiumPage extends ConsumerWidget {
                     ),
                   ),
                 ] else ...[
-                  _DowngradeButton(ref: ref, cs: cs),
+                  if (kDebugMode) _DowngradeButton(ref: ref, cs: cs),
                 ],
 
                 const SizedBox(height: 48),
