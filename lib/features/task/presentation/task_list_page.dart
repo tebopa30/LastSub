@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import '../../../core/services/breast_notification_service.dart';
 import '../../../core/providers/premium_provider.dart';
 import '../application/task_notifier.dart';
@@ -90,11 +92,22 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
   /// アラートタイマー単位（taskId → '秒'|'分'|'時間'|'日'）
   final Map<String, String> _alertTimerUnit = {};
 
-  /// アラートカウントダウン残り秒（taskId → 秒）
-  final Map<String, int> _alertTimerRemaining = {};
+  /// カウントアップ経過秒（taskId → 秒）
+  final Map<String, int> _alertTimerElapsed = {};
 
   /// アラート Timer インスタンス
   final Map<String, Timer> _alertTimers = {};
+
+  /// 手動記録用の日時（taskId → DateTime）。未設定なら現在時刻を使用。
+  final Map<String, DateTime?> _customRecordedAt = {};
+
+  /// マニュアル記録の経過分数（タイマー前回から何分の作業か）
+  final Map<String, int> _manualDurationMinutes = {};
+
+  // ── チュートリアル用 GlobalKey ──
+  final GlobalKey _keyAddButton = GlobalKey();
+  final GlobalKey _keyHistoryButton = GlobalKey();
+  final GlobalKey _keySettingsButton = GlobalKey();
 
   @override
   void initState() {
@@ -102,6 +115,85 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
     _minuteTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) setState(() {});
     });
+    // チュートリアルは build 後に実行
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowTutorial());
+  }
+
+  Future<void> _maybeShowTutorial() async {
+    final prefs = await SharedPreferences.getInstance();
+    final shown = prefs.getBool('tutorial_shown') ?? false;
+    if (shown || !mounted) return;
+    await prefs.setBool('tutorial_shown', true);
+    _showTutorial();
+  }
+
+  void _showTutorial() {
+    final targets = <TargetFocus>[
+      TargetFocus(
+        identify: 'add_button',
+        keyTarget: _keyAddButton,
+        shape: ShapeLightFocus.Circle,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (ctx, c) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text('タスクを追加', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                SizedBox(height: 8),
+                Text('「＋」ボタンで新しい記録タスクを作成できます。', style: TextStyle(color: Colors.white)),
+              ],
+            ),
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: 'history_button',
+        keyTarget: _keyHistoryButton,
+        shape: ShapeLightFocus.Circle,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (ctx, c) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text('記録履歴', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                SizedBox(height: 8),
+                Text('過去の記録をカレンダーやグラフで確認できます。', style: TextStyle(color: Colors.white)),
+              ],
+            ),
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: 'settings_button',
+        keyTarget: _keySettingsButton,
+        shape: ShapeLightFocus.Circle,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (ctx, c) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text('設定', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                SizedBox(height: 8),
+                Text('テーマ変更やプレミアムプランへのアップグレードができます。', style: TextStyle(color: Colors.white)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ];
+
+    TutorialCoachMark(
+      targets: targets,
+      colorShadow: Colors.black,
+      opacityShadow: 0.85,
+      textSkip: 'スキップ',
+      paddingFocus: 8,
+      onFinish: () {},
+      onSkip: () => true,
+    ).show(context: context);
   }
 
   @override
@@ -111,6 +203,58 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
       t.cancel();
     }
     super.dispose();
+  }
+
+  /// カウントアップタイマーを開始（計測開始ボタン用）
+  void _startMeasurement(String taskId) {
+    ref.read(taskProvider.notifier).startTask(taskId);
+    _cancelAlertTimer(taskId);
+    if (!mounted) return;
+    setState(() => _alertTimerElapsed[taskId] = 0);
+    _alertTimers[taskId] = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        _alertTimers.remove(taskId);
+        return;
+      }
+      setState(() {
+        _alertTimerElapsed[taskId] = (_alertTimerElapsed[taskId] ?? 0) + 1;
+      });
+      // 設定時間に達したらアラート
+      final value = _alertTimerValue[taskId] ?? 0;
+      final unit = _alertTimerUnit[taskId] ?? '分';
+      if (value > 0) {
+        final targetSecs = value * (_alertUnitToSeconds[unit] ?? 60);
+        if ((_alertTimerElapsed[taskId] ?? 0) >= targetSecs) {
+          t.cancel();
+          _alertTimers.remove(taskId);
+          if (mounted) _showAlertTimerAlert(taskId);
+        }
+      }
+    });
+  }
+
+  /// カスタム日時を選択するピッカーを表示
+  Future<void> _pickCustomDateTime(String taskId) async {
+    final initial = _customRecordedAt[taskId] ?? DateTime.now();
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+    );
+    if (pickedDate == null || !mounted) return;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (pickedTime == null || !mounted) return;
+    setState(() {
+      _customRecordedAt[taskId] = DateTime(
+        pickedDate.year, pickedDate.month, pickedDate.day,
+        pickedTime.hour, pickedTime.minute,
+      );
+    });
   }
 
   // ── アラートタイマー ──────────────────────
@@ -186,41 +330,13 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
     });
   }
 
-  void _startAlertTimer(String taskId) {
-    final value = _alertTimerValue[taskId] ?? 5;
-    final unit = _alertTimerUnit[taskId] ?? '分';
-    final totalSeconds = value * (_alertUnitToSeconds[unit] ?? 60);
-    _cancelAlertTimer(taskId);
-    if (!mounted) return;
-    setState(() => _alertTimerRemaining[taskId] = totalSeconds);
-    final tasks = ref.read(taskProvider).value ?? [];
-    final taskTitle = tasks.where((t) => t.id == taskId).firstOrNull?.title ?? 'タスク';
-    BreastNotificationService.instance.scheduleBreastAlert(taskId, totalSeconds, taskTitle: taskTitle);
-    _alertTimers[taskId] = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (!mounted) {
-        t.cancel();
-        _alertTimers.remove(taskId);
-        return;
-      }
-      final remaining = (_alertTimerRemaining[taskId] ?? 0) - 1;
-      if (remaining <= 0) {
-        t.cancel();
-        _alertTimers.remove(taskId);
-        if (mounted) {
-          setState(() => _alertTimerRemaining.remove(taskId));
-          _showAlertTimerAlert(taskId);
-        }
-      } else {
-        if (mounted) setState(() => _alertTimerRemaining[taskId] = remaining);
-      }
-    });
-  }
-
   void _cancelAlertTimer(String taskId) {
     _alertTimers[taskId]?.cancel();
     _alertTimers.remove(taskId);
-    if (mounted && _alertTimerRemaining.containsKey(taskId)) {
-      setState(() => _alertTimerRemaining.remove(taskId));
+    if (mounted) {
+      setState(() {
+        _alertTimerElapsed.remove(taskId);
+      });
     }
     BreastNotificationService.instance.cancelBreastAlert(taskId);
   }
@@ -248,26 +364,48 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
   }
 
   // ── 完了記録ダイアログ ─────────────────────
-  static const _availableUnits = ['ml', 'g', 'kg', 'cm', '回', '分', '時間', 'oz'];
+  static const _availableUnits = ['ml', 'g', 'kg', 'cm', 'm', 'km', '歩', '回', '分', '時間', 'kcal'];
 
   Future<({double? value, String? unit})?> _showCompleteDialog(
-      BuildContext context) async {
+      BuildContext context, String taskId, {bool isTimerMode = false}) async {
     double? inputValue;
     String selectedUnit = _availableUnits.first;
     bool useValue = false;
     final textController = TextEditingController();
 
+    // マニュアルモード用: 作業時間（分）
+    int manualMinutes = _manualDurationMinutes[taskId] ?? 0;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('完了記録'),
+          title: Text(isTimerMode ? '計測終了・記録' : 'マニュアル記録'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('完了タスクとして記録しますか？'),
-              const SizedBox(height: 12),
+              if (!isTimerMode) ...[
+                // マニュアル: 作業時間（分）プルダウン
+                Row(
+                  children: [
+                    const Text('作業時間:'),
+                    const SizedBox(width: 8),
+                    DropdownButton<int>(
+                      value: manualMinutes,
+                      isDense: true,
+                      items: [0, 1, 2, 3, 5, 10, 15, 20, 30, 45, 60]
+                          .map((m) => DropdownMenuItem(
+                              value: m,
+                              child: Text(m == 0 ? '未設定' : '$m分')))
+                          .toList(),
+                      onChanged: (v) =>
+                          setDialogState(() => manualMinutes = v ?? 0),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
               Row(
                 children: [
                   Checkbox(
@@ -327,6 +465,10 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
 
     textController.dispose();
     if (confirmed != true) return null;
+    // マニュアルモード: manualMinutes を記憶
+    if (!isTimerMode) {
+      setState(() => _manualDurationMinutes[taskId] = manualMinutes);
+    }
     return (
       value: useValue ? inputValue : null,
       unit: useValue ? selectedUnit : null,
@@ -463,6 +605,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
               ),
             ),
           IconButton(
+            key: _keyHistoryButton,
             icon: const Icon(Icons.history),
             tooltip: '記録履歴',
             onPressed: () => Navigator.push(
@@ -471,6 +614,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
             ),
           ),
           IconButton(
+            key: _keySettingsButton,
             icon: const Icon(Icons.settings),
             tooltip: '設定',
             onPressed: () => Navigator.push(
@@ -489,6 +633,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
       ),
       bottomNavigationBar: isPremium ? null : const _BannerAdWidget(),
       floatingActionButton: FloatingActionButton(
+        key: _keyAddButton,
         onPressed: () => _showAddTaskModal(context),
         tooltip: 'タスクを追加',
         child: const Icon(Icons.add),
@@ -659,7 +804,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                 if (isRecording)
                   _SleepSubtitle(sessionStart: activeSessions[task.id]),
 
-                // ── アラートタイマー設定（計測前）──
+                // ── アラートタイマー設定（カウントアップ）──
                 if (!isRecording) ...[
                   const SizedBox(height: 4),
                   Row(
@@ -670,19 +815,14 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                       const SizedBox(width: 4),
                       GestureDetector(
                         onTap: () => _showAlertTimerDialog(task.id),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              _formatAlertSetting(task.id),
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Theme.of(context).colorScheme.primary,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          _formatAlertSetting(task.id),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.primary,
+                            decoration: TextDecoration.underline,
+                          ),
                         ),
                       ),
                       Text(' でアラート',
@@ -693,13 +833,13 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                   ),
                 ],
 
-                // ── アラートカウントダウン（計測中）──
-                if (_alertTimerRemaining.containsKey(task.id)) ...[
+                // ── カウントアップタイマー表示（計測中）──
+                if (_alertTimerElapsed.containsKey(task.id)) ...[
                   const SizedBox(height: 4),
                   Builder(builder: (context) {
-                    final rem = _alertTimerRemaining[task.id]!;
-                    final mm = (rem ~/ 60).toString().padLeft(2, '0');
-                    final ss = (rem % 60).toString().padLeft(2, '0');
+                    final elapsed = _alertTimerElapsed[task.id]!;
+                    final mm = (elapsed ~/ 60).toString().padLeft(2, '0');
+                    final ss = (elapsed % 60).toString().padLeft(2, '0');
                     return Row(
                       children: [
                         Icon(Icons.timer, size: 13,
@@ -711,9 +851,51 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                               fontWeight: FontWeight.w700,
                               color: Theme.of(context).colorScheme.primary,
                             )),
+                        const SizedBox(width: 4),
+                        Text('計測中',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            )),
                       ],
                     );
                   }),
+                ],
+
+                // ── 日時選択行（マニュアル記録用）──
+                if (!_alertTimerElapsed.containsKey(task.id)) ...[
+                  const SizedBox(height: 6),
+                  GestureDetector(
+                    onTap: () => _pickCustomDateTime(task.id),
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_calendar_outlined,
+                            size: 13,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        const SizedBox(width: 4),
+                        Text(
+                          _customRecordedAt[task.id] != null
+                              ? '${_customRecordedAt[task.id]!.year}/${_customRecordedAt[task.id]!.month.toString().padLeft(2, '0')}/${_customRecordedAt[task.id]!.day.toString().padLeft(2, '0')} ${_customRecordedAt[task.id]!.hour.toString().padLeft(2, '0')}:${_customRecordedAt[task.id]!.minute.toString().padLeft(2, '0')}'
+                              : '未設定（現在時刻で記録）',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _customRecordedAt[task.id] != null
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                        if (_customRecordedAt[task.id] != null) ...[
+                          const SizedBox(width: 4),
+                          GestureDetector(
+                            onTap: () => setState(() => _customRecordedAt[task.id] = null),
+                            child: Icon(Icons.clear, size: 13,
+                                color: Theme.of(context).colorScheme.error),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ],
 
                 // ── ボタン行 ──
@@ -721,39 +903,66 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // 開始 / 完了ボタン（全タスク共通タイマー形式）
-                    if (!isRecording)
+                    // 計測開始ボタン（セッション開始してカウントアップ）
+                    if (!isRecording) ...[
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.play_arrow, size: 18),
+                        label: const Text('計測開始'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(96, 44),
+                          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                        onPressed: _isProcessing ? null : () {
+                          _startMeasurement(task.id);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      // 即時記録ボタン（マニュアル記録）
                       FilledButton(
                         style: FilledButton.styleFrom(
-                          minimumSize: const Size(96, 48),
-                          textStyle: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w700),
+                          minimumSize: const Size(80, 44),
+                          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                         ),
                         onPressed: _isProcessing ? null : () async {
+                          final result = await _showCompleteDialog(context, task.id, isTimerMode: false);
+                          if (result == null || !mounted) return;
                           setState(() => _isProcessing = true);
                           try {
-                            await ref.read(taskProvider.notifier).startTask(task.id);
-                            _startAlertTimer(task.id);
+                            final recordedAt = _customRecordedAt[task.id];
+                            final durationMins = _manualDurationMinutes[task.id] ?? 0;
+                            final customStart = durationMins > 0 && recordedAt != null
+                                ? recordedAt.subtract(Duration(minutes: durationMins))
+                                : durationMins > 0
+                                    ? DateTime.now().subtract(Duration(minutes: durationMins))
+                                    : null;
+                            await ref.read(taskProvider.notifier).recordTaskExecution(
+                              task.id,
+                              value: result.value,
+                              unit: result.unit,
+                              recordedAt: recordedAt,
+                              customStartedAt: customStart,
+                            );
+                            setState(() => _customRecordedAt[task.id] = null);
                           } catch (e) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('開始できませんでした: $e')));
+                                  SnackBar(content: Text('記録できませんでした: $e')));
                             }
                           } finally {
                             if (mounted) setState(() => _isProcessing = false);
                           }
                         },
-                        child: const Text('開始'),
-                      )
-                    else
+                        child: const Text('記録'),
+                      ),
+                    ] else ...[
+                      // 計測中: 終了して記録
                       FilledButton.tonal(
                         style: FilledButton.styleFrom(
-                          minimumSize: const Size(96, 48),
-                          textStyle: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w700),
+                          minimumSize: const Size(110, 48),
+                          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                         ),
                         onPressed: _isProcessing ? null : () async {
-                          final result = await _showCompleteDialog(context);
+                          final result = await _showCompleteDialog(context, task.id, isTimerMode: true);
                           if (result == null || !mounted) return;
                           setState(() => _isProcessing = true);
                           try {
@@ -772,8 +981,9 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                             if (mounted) setState(() => _isProcessing = false);
                           }
                         },
-                        child: const Text('完了'),
+                        child: const Text('計測終了・記録'),
                       ),
+                    ],
                   ],
                 ),
               ],

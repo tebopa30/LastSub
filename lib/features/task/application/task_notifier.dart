@@ -61,21 +61,25 @@ class TaskNotifier extends _$TaskNotifier {
     ref.read(activeSessionsProvider.notifier).startSession(taskId);
   }
 
-  /// タスクの実行記録。セッション開始時刻は activeSessionsProvider から自動取得。
+  /// タスクの実行記録。
+  /// [recordedAt]: 記録日時（null の場合は現在時刻）
+  /// [customStartedAt]: 手動設定の開始時刻（null の場合はアクティブセッションから取得）
   Future<void> recordTaskExecution(
     String taskId, {
     double? value,
     String? unit,
     String? memo,
+    DateTime? recordedAt,
+    DateTime? customStartedAt,
   }) async {
     debugPrint('TaskNotifier: recordTaskExecution(taskId: $taskId)');
 
     // セッションを終了し、開始時刻を取得
-    final sessionStart =
+    final sessionStart = customStartedAt ??
         ref.read(activeSessionsProvider.notifier).endSession(taskId);
 
     final repo = ref.read(taskRecordRepositoryProvider);
-    final now = DateTime.now();
+    final now = recordedAt ?? DateTime.now();
 
     final record = TaskRecordEntity(
       id: const Uuid().v4(),

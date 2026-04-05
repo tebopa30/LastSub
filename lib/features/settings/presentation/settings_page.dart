@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/providers/premium_provider.dart';
 import '../../premium/presentation/premium_page.dart';
@@ -94,6 +95,21 @@ class SettingsPage extends ConsumerWidget {
               context,
               MaterialPageRoute(builder: (_) => const UserManualPage()),
             ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.help_outline),
+            title: const Text('チュートリアルを再表示'),
+            subtitle: const Text('使い方のガイドをもう一度表示します'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('tutorial_shown', false);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('次回アプリを開いたときにチュートリアルが表示されます')),
+                );
+              }
+            },
           ),
           ListTile(
             leading: const Icon(Icons.privacy_tip_outlined),

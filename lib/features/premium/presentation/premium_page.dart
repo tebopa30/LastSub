@@ -127,8 +127,8 @@ class PremiumPage extends ConsumerWidget {
                 // ── 購入 / 有効中 ボタン ──────────────────────
                 if (!isPremium) ...[
                   purchaseAsync.when(
-                    loading: () => const Center(
-                        child: CircularProgressIndicator()),
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
                     error: (e, _) => _UnavailableMessage(cs: cs),
                     data: (purchaseState) {
                       switch (purchaseState.status) {
@@ -148,8 +148,7 @@ class PremiumPage extends ConsumerWidget {
                               _UpgradeButton(
                                   ref: ref,
                                   isDark: isDark,
-                                  productDetails:
-                                      purchaseState.productDetails),
+                                  productDetails: purchaseState.productDetails),
                             ],
                           );
                         case IAPStatus.loading:
@@ -164,8 +163,9 @@ class PremiumPage extends ConsumerWidget {
                   const SizedBox(height: 12),
                   Center(
                     child: TextButton(
-                      onPressed: () =>
-                          ref.read(purchaseProvider.notifier).restorePurchases(),
+                      onPressed: () => ref
+                          .read(purchaseProvider.notifier)
+                          .restorePurchases(),
                       child: Text(
                         '購入を復元する',
                         style: TextStyle(fontSize: 13, color: cs.outline),
@@ -275,9 +275,7 @@ class _BenefitCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(description,
                     style: TextStyle(
-                        fontSize: 13,
-                        color: cs.onSurfaceVariant,
-                        height: 1.5)),
+                        fontSize: 13, color: cs.onSurfaceVariant, height: 1.5)),
               ],
             ),
           ),
@@ -389,8 +387,8 @@ class _DowngradeButton extends StatelessWidget {
             Navigator.pop(context);
           }
         },
-        child: Text('無料プランに戻す',
-            style: TextStyle(color: cs.outline, fontSize: 13)),
+        child:
+            Text('無料プランに戻す', style: TextStyle(color: cs.outline, fontSize: 13)),
       ),
     );
   }

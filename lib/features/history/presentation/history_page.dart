@@ -226,11 +226,15 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
               final record = item.record;
               final timeStr = DateFormat('HH:mm').format(record.recordedAt);
               final ordinalLabel = group.count > 1 ? '$ordinal回目' : null;
+              // 前回の記録（同タスク内で一つ前の記録）
+              final TaskRecordEntity? prevRecord =
+                  entry.key > 0 ? group.items[entry.key - 1].record : null;
               return _buildRecordRow(
                 record: record,
                 task: task,
                 timeStr: timeStr,
                 ordinalLabel: ordinalLabel,
+                previousRecord: prevRecord,
               );
             }),
           ],
@@ -244,7 +248,20 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     required TaskEntity task,
     required String timeStr,
     String? ordinalLabel,
+    TaskRecordEntity? previousRecord,
   }) {
+    // 前回記録からの経過時間（前回の recordedAt → 今回の startedAt or recordedAt）
+    String? intervalFromPrev;
+    if (previousRecord != null) {
+      final prevEnd = previousRecord.recordedAt;
+      final thisStart = record.startedAt ?? record.recordedAt;
+      final diff = thisStart.difference(prevEnd);
+      if (diff.inMinutes > 0) {
+        final h = diff.inHours;
+        final m = diff.inMinutes % 60;
+        intervalFromPrev = h > 0 ? '前回から $h時間$m分後に開始' : '前回から $m分後に開始';
+      }
+    }
     return Dismissible(
       key: Key(record.id),
       direction: DismissDirection.endToStart,
@@ -288,87 +305,107 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       },
       child: Padding(
         padding: const EdgeInsets.only(top: 4),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (ordinalLabel != null)
-              SizedBox(
-                width: 40,
-                child: Text(ordinalLabel,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontWeight: FontWeight.w600,
-                    )),
-              )
-            else
-              const SizedBox(width: 4),
-            InkWell(
-              onTap: () => _editRecordTime(record),
-              borderRadius: BorderRadius.circular(4),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(timeStr,
+            Row(
+              children: [
+                if (ordinalLabel != null)
+                  SizedBox(
+                    width: 40,
+                    child: Text(ordinalLabel,
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontWeight: FontWeight.w600,
-                          color: Theme.of(context).colorScheme.primary,
                         )),
-                    const SizedBox(width: 2),
-                    Icon(Icons.edit, size: 11,
-                        color: Theme.of(context).colorScheme.primary),
-                  ],
+                  )
+                else
+                  const SizedBox(width: 4),
+                InkWell(
+                  onTap: () => _editRecordTime(record),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(timeStr,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).colorScheme.primary,
+                            )),
+                        const SizedBox(width: 2),
+                        Icon(Icons.edit, size: 11,
+                            color: Theme.of(context).colorScheme.primary),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                if (record.startedAt != null) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    _formatDuration(record.recordedAt.difference(record.startedAt!)),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+                if (record.value != null) ...[
+                  const SizedBox(width: 6),
+                  InkWell(
+                    onTap: () => _editRecordValue(record),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            record.unit != null && record.unit!.isNotEmpty
+                                ? '${record.value!.toInt()} ${record.unit}'
+                                : '${record.value!.toInt()}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).colorScheme.primary,
+                            )),
+                          const SizedBox(width: 2),
+                          Icon(Icons.edit, size: 11,
+                              color: Theme.of(context).colorScheme.primary),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                if (record.memo != null && record.memo!.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(record.memo!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                ],
+              ],
             ),
-            if (record.startedAt != null) ...[
-              const SizedBox(width: 6),
-              Text(
-                _formatDuration(record.recordedAt.difference(record.startedAt!)),
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-            if (record.value != null) ...[
-              const SizedBox(width: 6),
-              InkWell(
-                onTap: () => _editRecordValue(record),
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('${record.value!.toInt()}${record.unit ?? ''}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Theme.of(context).colorScheme.primary,
-                          )),
-                      const SizedBox(width: 2),
-                      Icon(Icons.edit, size: 11,
-                          color: Theme.of(context).colorScheme.primary),
-                    ],
+            if (intervalFromPrev != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 44, top: 2),
+                child: Text(
+                  intervalFromPrev,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).colorScheme.outline,
+                    fontStyle: FontStyle.italic,
                   ),
                 ),
               ),
-            ],
-            if (record.memo != null && record.memo!.isNotEmpty) ...[
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(record.memo!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-              ),
-            ],
           ],
         ),
       ),

@@ -62,8 +62,7 @@ class PurchaseNotifier extends AsyncNotifier<PurchaseUiState> {
     await iap.restorePurchases();
 
     // Query product details
-    final response =
-        await iap.queryProductDetails({kPremiumProductId});
+    final response = await iap.queryProductDetails({kPremiumProductId});
     if (response.error != null || response.productDetails.isEmpty) {
       return const PurchaseUiState(status: IAPStatus.unavailable);
     }
