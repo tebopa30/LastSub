@@ -101,8 +101,11 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
   /// 手動記録用の日時（taskId → DateTime）。未設定なら現在時刻を使用。
   final Map<String, DateTime?> _customRecordedAt = {};
 
-  /// マニュアル記録の経過分数（タイマー前回から何分の作業か）
-  final Map<String, int> _manualDurationMinutes = {};
+  /// マニュアル記録の作業時間値（taskId → 数値）
+  final Map<String, int> _manualDurationValue = {};
+
+  /// マニュアル記録の作業時間単位（taskId → '秒'|'分'|'時間'）
+  final Map<String, String> _manualDurationUnit = {};
 
   // ── チュートリアル用 GlobalKey ──
   final GlobalKey _keyAddButton = GlobalKey();
@@ -373,8 +376,11 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
     bool useValue = false;
     final textController = TextEditingController();
 
-    // マニュアルモード用: 作業時間（分）
-    int manualMinutes = _manualDurationMinutes[taskId] ?? 0;
+    // マニュアルモード用: 作業時間（自由入力）
+    String manualDurUnit = _manualDurationUnit[taskId] ?? '分';
+    final durController = TextEditingController(
+      text: _manualDurationValue[taskId]?.toString() ?? '',
+    );
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -386,21 +392,33 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (!isTimerMode) ...[
-                // マニュアル: 作業時間（分）プルダウン
+                // マニュアル: 作業時間（自由入力）
                 Row(
                   children: [
                     const Text('作業時間:'),
                     const SizedBox(width: 8),
-                    DropdownButton<int>(
-                      value: manualMinutes,
+                    Expanded(
+                      child: TextField(
+                        controller: durController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          hintText: '未設定',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    DropdownButton<String>(
+                      value: manualDurUnit,
                       isDense: true,
-                      items: [0, 1, 2, 3, 5, 10, 15, 20, 30, 45, 60]
-                          .map((m) => DropdownMenuItem(
-                              value: m,
-                              child: Text(m == 0 ? '未設定' : '$m分')))
+                      items: ['秒', '分', '時間']
+                          .map((u) => DropdownMenuItem(value: u, child: Text(u)))
                           .toList(),
-                      onChanged: (v) =>
-                          setDialogState(() => manualMinutes = v ?? 0),
+                      onChanged: (v) {
+                        if (v != null) setDialogState(() => manualDurUnit = v);
+                      },
                     ),
                   ],
                 ),
@@ -463,11 +481,21 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
       ),
     );
 
+    final parsedDurValue = int.tryParse(durController.text.trim());
+    durController.dispose();
     textController.dispose();
     if (confirmed != true) return null;
-    // マニュアルモード: manualMinutes を記憶
-    if (!isTimerMode) {
-      setState(() => _manualDurationMinutes[taskId] = manualMinutes);
+    // マニュアルモード: 作業時間を記憶
+    if (!isTimerMode && parsedDurValue != null && parsedDurValue > 0) {
+      setState(() {
+        _manualDurationValue[taskId] = parsedDurValue;
+        _manualDurationUnit[taskId] = manualDurUnit;
+      });
+    } else if (!isTimerMode) {
+      setState(() {
+        _manualDurationValue.remove(taskId);
+        _manualDurationUnit.remove(taskId);
+      });
     }
     return (
       value: useValue ? inputValue : null,
@@ -925,11 +953,14 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                           setState(() => _isProcessing = true);
                           try {
                             final recordedAt = _customRecordedAt[task.id];
-                            final durationMins = _manualDurationMinutes[task.id] ?? 0;
-                            final customStart = durationMins > 0 && recordedAt != null
-                                ? recordedAt.subtract(Duration(minutes: durationMins))
-                                : durationMins > 0
-                                    ? DateTime.now().subtract(Duration(minutes: durationMins))
+                            final durVal = _manualDurationValue[task.id] ?? 0;
+                            final durUnit = _manualDurationUnit[task.id] ?? '分';
+                            const unitSecs = {'秒': 1, '分': 60, '時間': 3600};
+                            final durSecs = durVal * (unitSecs[durUnit] ?? 60);
+                            final customStart = durSecs > 0 && recordedAt != null
+                                ? recordedAt.subtract(Duration(seconds: durSecs))
+                                : durSecs > 0
+                                    ? DateTime.now().subtract(Duration(seconds: durSecs))
                                     : null;
                             await ref.read(taskProvider.notifier).recordTaskExecution(
                               task.id,

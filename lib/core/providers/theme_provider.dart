@@ -17,7 +17,7 @@ class ThemeModeNotifier extends _$ThemeModeNotifier {
   @override
   ThemeMode build() {
     _loadTheme();
-    return ThemeMode.light; // 初期値は Natural Soft
+    return ThemeMode.dark; // デフォルトは Classic Sleek
   }
 
   Future<void> _loadTheme() async {
