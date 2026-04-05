@@ -296,15 +296,13 @@ class _UpgradeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final priceLabel = productDetails?.price ?? '¥200/月';
-
     return SizedBox(
       width: double.infinity,
       child: FilledButton.icon(
         icon: const Icon(Icons.workspace_premium, size: 20),
-        label: Text(
-          'プレミアムへアップグレード ($priceLabel)',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        label: const Text(
+          'プレミアムへアップグレード (¥200/月)',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 18),

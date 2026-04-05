@@ -800,10 +800,6 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                   ),
                 ),
 
-                // ── 計測中サブ情報 ──
-                if (isRecording)
-                  _SleepSubtitle(sessionStart: activeSessions[task.id]),
-
                 // ── アラートタイマー設定（カウントアップ）──
                 if (!isRecording) ...[
                   const SizedBox(height: 4),
@@ -847,7 +843,7 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
                         const SizedBox(width: 4),
                         Text('$mm:$ss',
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: 28,
                               fontWeight: FontWeight.w700,
                               color: Theme.of(context).colorScheme.primary,
                             )),
@@ -1054,33 +1050,6 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
             }
           }
         },
-      ),
-    );
-  }
-}
-
-// ──────────────────────────────────────────────
-// 睡眠・母乳のサブタイトル
-// ──────────────────────────────────────────────
-class _SleepSubtitle extends StatelessWidget {
-  final DateTime? sessionStart;
-
-  const _SleepSubtitle({this.sessionStart});
-
-  @override
-  Widget build(BuildContext context) {
-    if (sessionStart == null) return const SizedBox.shrink();
-
-    final elapsed = DateTime.now().difference(sessionStart!);
-    final hh = elapsed.inHours.toString().padLeft(2, '0');
-    final mm = (elapsed.inMinutes % 60).toString().padLeft(2, '0');
-
-    return Text(
-      '計測中: $hh:$mm',
-      style: TextStyle(
-        fontSize: 13,
-        color: Theme.of(context).colorScheme.primary,
-        fontWeight: FontWeight.w600,
       ),
     );
   }
