@@ -23,11 +23,12 @@ class ThemeModeNotifier extends _$ThemeModeNotifier {
   Future<void> _loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
     final value = prefs.getString(_key);
-    if (value == AppThemeType.classicSleek.name) {
-      state = ThemeMode.dark;
-    } else {
+    if (value == AppThemeType.naturalSoft.name) {
       state = ThemeMode.light;
+    } else if (value == AppThemeType.classicSleek.name) {
+      state = ThemeMode.dark;
     }
+    // 未設定の場合は build() の初期値 ThemeMode.dark を維持
   }
 
   Future<void> setTheme(AppThemeType type) async {
