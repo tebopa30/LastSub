@@ -5,6 +5,7 @@ import '../../../core/providers/theme_provider.dart';
 import '../../../core/providers/premium_provider.dart';
 import '../../premium/presentation/premium_page.dart';
 import 'privacy_policy_page.dart';
+import 'terms_of_use_page.dart';
 import 'user_manual_page.dart';
 
 class SettingsPage extends ConsumerWidget {
@@ -110,6 +111,15 @@ class SettingsPage extends ConsumerWidget {
                 );
               }
             },
+          ),
+          ListTile(
+            leading: const Icon(Icons.description_outlined),
+            title: const Text('利用規約'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TermsOfUsePage()),
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.privacy_tip_outlined),

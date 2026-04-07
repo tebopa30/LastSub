@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart'; // Added for kDebugMode
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/premium_provider.dart';
 import '../../../core/providers/purchase_provider.dart';
+import '../../settings/presentation/privacy_policy_page.dart';
+import '../../settings/presentation/terms_of_use_page.dart';
 
 class PremiumPage extends ConsumerWidget {
   const PremiumPage({super.key});
@@ -172,6 +174,39 @@ class PremiumPage extends ConsumerWidget {
                         style: TextStyle(fontSize: 13, color: cs.outline),
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  // 法的リンク
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const TermsOfUsePage()),
+                        ),
+                        child: Text(
+                          '利用規約',
+                          style: TextStyle(fontSize: 12, color: cs.outline),
+                        ),
+                      ),
+                      Text(
+                        ' ・ ',
+                        style: TextStyle(fontSize: 12, color: cs.outline),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const PrivacyPolicyPage()),
+                        ),
+                        child: Text(
+                          'プライバシーポリシー',
+                          style: TextStyle(fontSize: 12, color: cs.outline),
+                        ),
+                      ),
+                    ],
                   ),
                 ] else ...[
                   if (kDebugMode) _DowngradeButton(ref: ref, cs: cs),

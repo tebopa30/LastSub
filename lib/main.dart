@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 
 import 'core/services/breast_notification_service.dart';
 import 'core/providers/notification_service.dart';
@@ -27,6 +28,15 @@ void main() async {
     debugPrint('[PlatformError] $error');
     return true;
   };
+
+  if (!kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS)) {
+    final status = await AppTrackingTransparency.trackingAuthorizationStatus;
+    if (status == TrackingStatus.notDetermined) {
+      await AppTrackingTransparency.requestTrackingAuthorization();
+    }
+  }
 
   await MobileAds.instance.initialize();
   await BreastNotificationService.instance.initialize();
