@@ -32,6 +32,9 @@ void main() async {
   if (!kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.iOS ||
           defaultTargetPlatform == TargetPlatform.macOS)) {
+    // iOS/macOSでは、アプリ起動直後にダイアログを要求すると表示されないことがあるため、
+    // 1秒程度の遅延を入れるのが一般的です。
+    await Future.delayed(const Duration(milliseconds: 1000));
     final status = await AppTrackingTransparency.trackingAuthorizationStatus;
     if (status == TrackingStatus.notDetermined) {
       await AppTrackingTransparency.requestTrackingAuthorization();
