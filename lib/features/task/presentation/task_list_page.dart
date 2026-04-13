@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:app_tracking_transparency/app_tracking_transparency.dart';
+
 import '../../../core/services/breast_notification_service.dart';
 import '../../../core/providers/premium_provider.dart';
 import '../application/task_notifier.dart';
@@ -118,8 +121,56 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
     _minuteTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) setState(() {});
     });
-    // チュートリアルは build 後に実行
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowTutorial());
+    // チュートリアルとATT要求は build 後に実行
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowTutorial();
+      _initATT();
+    });
+  }
+
+  Future<void> _initATT() async {
+    // iOS/macOS以外、またはWebは対象外
+    if (kIsWeb || (defaultTargetPlatform != TargetPlatform.iOS && defaultTargetPlatform != TargetPlatform.macOS)) {
+      return;
+    }
+
+    final status = await AppTrackingTransparency.trackingAuthorizationStatus;
+    if (status == TrackingStatus.notDetermined) {
+      // 起動直後すぎるとダイアログが出ないことがあるため、少し待機
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      if (!mounted) return;
+
+      // ソフトプロンプトを表示（Apple推奨：システムダイアログの前に理由を説明する）
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('広告の最適化について'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text('次画面で、広告トラッキングの許可についての確認が表示されます。'),
+              SizedBox(height: 12),
+              Text('「許可」をいただくことで、お客様の興味に合わせたより適切な広告が表示されるようになります。'),
+              SizedBox(height: 8),
+              Text('※「許可しない」を選んだ場合でも、アプリのすべての機能を引き続き無料でご利用いただけます。',
+                style: TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('次へ進む'),
+            ),
+          ],
+        ),
+      );
+
+      // システムの権限要求ダイアログを表示
+      await AppTrackingTransparency.requestTrackingAuthorization();
+    }
   }
 
   Future<void> _maybeShowTutorial() async {
