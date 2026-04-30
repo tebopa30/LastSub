@@ -8,6 +8,7 @@ import '../domain/task_entity.dart';
 import '../domain/task_record_entity.dart';
 import 'daily_stats_provider.dart';
 import 'active_sessions_provider.dart';
+import 'motivation_provider.dart';
 
 part 'task_notifier.g.dart';
 
@@ -118,6 +119,27 @@ class TaskNotifier extends _$TaskNotifier {
     if (task != null && interval != null && interval > 0) {
       await BreastNotificationService.instance
           .scheduleIntervalAlert(taskId, task.title, interval);
+    }
+    
+    // タスク完了時のモチベーションポイントを加算
+    if (task != null) {
+      final lastRecorded = task.lastRecordedAt;
+      int points = 10; // 基本ポイント
+      
+      if (lastRecorded != null && interval != null && interval > 0) {
+        final elapsedSecs = now.difference(lastRecorded).inSeconds;
+        // 推奨間隔の1.5倍以内に完了できた場合はボーナス
+        if (elapsedSecs < interval * 1.5) {
+          points += 5;
+        }
+      } else if (lastRecorded != null) {
+        // 推奨間隔未設定の場合、24時間以内ならボーナス
+        final hours = now.difference(lastRecorded).inHours;
+        if (hours < 24) {
+          points += 5;
+        }
+      }
+      await ref.read(motivationProvider.notifier).addPoints(points);
     }
   }
 

@@ -18,6 +18,7 @@ import 'widgets/add_task_modal.dart';
 import '../../history/presentation/history_page.dart';
 import '../../settings/presentation/settings_page.dart';
 import '../../premium/presentation/premium_page.dart';
+import 'widgets/motivation_mascot_widget.dart';
 
 // ──────────────────────────────────────────────
 // 経過時間に応じたステータスカラー
@@ -741,16 +742,25 @@ class _TaskListPageState extends ConsumerState<TaskListPage> {
       );
     }
 
-    return ReorderableListView.builder(
-      padding: const EdgeInsets.only(top: 8, bottom: 88),
-      itemCount: tasks.length,
-      onReorder: (oldIndex, newIndex) {
-        ref.read(taskProvider.notifier).reorderTasks(oldIndex, newIndex);
-      },
-      itemBuilder: (context, index) {
-        final task = tasks[index];
-        return _buildTaskCard(context, task, isDark, activeSessions);
-      },
+    return CustomScrollView(
+      slivers: [
+        const SliverToBoxAdapter(
+          child: MotivationMascotWidget(),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.only(top: 8, bottom: 88),
+          sliver: SliverReorderableList(
+            itemCount: tasks.length,
+            onReorder: (oldIndex, newIndex) {
+              ref.read(taskProvider.notifier).reorderTasks(oldIndex, newIndex);
+            },
+            itemBuilder: (context, index) {
+              final task = tasks[index];
+              return _buildTaskCard(context, task, isDark, activeSessions);
+            },
+          ),
+        ),
+      ],
     );
   }
 

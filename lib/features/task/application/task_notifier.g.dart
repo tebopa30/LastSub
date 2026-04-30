@@ -33,7 +33,7 @@ final class TaskNotifierProvider
   TaskNotifier create() => TaskNotifier();
 }
 
-String _$taskNotifierHash() => r'ebd3c305eca63e364be423b7ba2618dac35176a2';
+String _$taskNotifierHash() => r'3bc02c10e33884f94d678e0daafa50af0da8dfe0';
 
 abstract class _$TaskNotifier extends $StreamNotifier<List<TaskEntity>> {
   Stream<List<TaskEntity>> build();

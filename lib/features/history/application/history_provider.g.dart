@@ -87,7 +87,7 @@ final class HistoryNotifierProvider
   }
 }
 
-String _$historyNotifierHash() => r'beedb6f23675e603d7f9446fe20fcf0790e6c559';
+String _$historyNotifierHash() => r'f54f4542980fa7bb8a76faaf58d730e97986c604';
 
 abstract class _$HistoryNotifier extends $Notifier<bool> {
   bool build();

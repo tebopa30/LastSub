@@ -19,9 +19,9 @@ class BreastNotificationService {
 
     tz_data.initializeTimeZones();
 
-    // '@mipmap/' プレフィックスは不要（プラグインがリソース名で検索するため）
+    // mipmapフォルダ内のアイコンを指定するため '@mipmap/' プレフィックスを付けます
     const androidSettings =
-        AndroidInitializationSettings('ic_launcher');
+        AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: false,

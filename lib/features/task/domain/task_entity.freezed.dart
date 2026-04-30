@@ -22,6 +22,9 @@ mixin _$TaskEntity {
   bool get isPremiumLocked;
   int get order;
   DateTime? get lastRecordedAt;
+
+  /// 推奨間隔（秒単位）。null = 未設定。
+  /// DB列名は後方互換のため recommendedIntervalDays のままだが、実際には秒を格納する。
   int? get recommendedIntervalDays;
   DateTime get createdAt;
   DateTime get updatedAt;
@@ -54,7 +57,8 @@ mixin _$TaskEntity {
             (identical(other.order, order) || other.order == order) &&
             (identical(other.lastRecordedAt, lastRecordedAt) ||
                 other.lastRecordedAt == lastRecordedAt) &&
-            (identical(other.recommendedIntervalDays, recommendedIntervalDays) ||
+            (identical(
+                    other.recommendedIntervalDays, recommendedIntervalDays) ||
                 other.recommendedIntervalDays == recommendedIntervalDays) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
@@ -64,9 +68,19 @@ mixin _$TaskEntity {
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, id, title, iconName, colorCode,
-      isActive, isPremiumLocked, order, lastRecordedAt, recommendedIntervalDays,
-      createdAt, updatedAt);
+  int get hashCode => Object.hash(
+      runtimeType,
+      id,
+      title,
+      iconName,
+      colorCode,
+      isActive,
+      isPremiumLocked,
+      order,
+      lastRecordedAt,
+      recommendedIntervalDays,
+      createdAt,
+      updatedAt);
 
   @override
   String toString() {
@@ -169,6 +183,18 @@ class _$TaskEntityCopyWithImpl<$Res> implements $TaskEntityCopyWith<$Res> {
 
 /// Adds pattern-matching-related methods to [TaskEntity].
 extension TaskEntityPatterns on TaskEntity {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
   @optionalTypeArgs
   TResult maybeMap<TResult extends Object?>(
     TResult Function(_TaskEntity value)? $default, {
@@ -183,6 +209,19 @@ extension TaskEntityPatterns on TaskEntity {
     }
   }
 
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
   @optionalTypeArgs
   TResult map<TResult extends Object?>(
     TResult Function(_TaskEntity value) $default,
@@ -193,6 +232,18 @@ extension TaskEntityPatterns on TaskEntity {
         return $default(_that);
     }
   }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
 
   @optionalTypeArgs
   TResult? mapOrNull<TResult extends Object?>(
@@ -206,6 +257,18 @@ extension TaskEntityPatterns on TaskEntity {
         return null;
     }
   }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
 
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>(
@@ -244,6 +307,19 @@ extension TaskEntityPatterns on TaskEntity {
     }
   }
 
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
   @optionalTypeArgs
   TResult when<TResult extends Object?>(
     TResult Function(
@@ -277,6 +353,18 @@ extension TaskEntityPatterns on TaskEntity {
             _that.updatedAt);
     }
   }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
 
   @optionalTypeArgs
   TResult? whenOrNull<TResult extends Object?>(
@@ -352,6 +440,9 @@ class _TaskEntity implements TaskEntity {
   final int order;
   @override
   final DateTime? lastRecordedAt;
+
+  /// 推奨間隔（秒単位）。null = 未設定。
+  /// DB列名は後方互換のため recommendedIntervalDays のままだが、実際には秒を格納する。
   @override
   final int? recommendedIntervalDays;
   @override
@@ -369,7 +460,9 @@ class _TaskEntity implements TaskEntity {
 
   @override
   Map<String, dynamic> toJson() {
-    return _$TaskEntityToJson(this);
+    return _$TaskEntityToJson(
+      this,
+    );
   }
 
   @override
@@ -390,7 +483,8 @@ class _TaskEntity implements TaskEntity {
             (identical(other.order, order) || other.order == order) &&
             (identical(other.lastRecordedAt, lastRecordedAt) ||
                 other.lastRecordedAt == lastRecordedAt) &&
-            (identical(other.recommendedIntervalDays, recommendedIntervalDays) ||
+            (identical(
+                    other.recommendedIntervalDays, recommendedIntervalDays) ||
                 other.recommendedIntervalDays == recommendedIntervalDays) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
@@ -400,9 +494,19 @@ class _TaskEntity implements TaskEntity {
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, id, title, iconName, colorCode,
-      isActive, isPremiumLocked, order, lastRecordedAt, recommendedIntervalDays,
-      createdAt, updatedAt);
+  int get hashCode => Object.hash(
+      runtimeType,
+      id,
+      title,
+      iconName,
+      colorCode,
+      isActive,
+      isPremiumLocked,
+      order,
+      lastRecordedAt,
+      recommendedIntervalDays,
+      createdAt,
+      updatedAt);
 
   @override
   String toString() {

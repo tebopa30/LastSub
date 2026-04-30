@@ -46,7 +46,7 @@ final class GrowthRecordsStreamProvider extends $FunctionalProvider<
 }
 
 String _$growthRecordsStreamHash() =>
-    r'd402314d71b2d7ba7c66da2c77ee5319073b77b4';
+    r'5d1d3050e41b14dea68fbd90600e8fc70ed0bcd2';
 
 @ProviderFor(GrowthNotifier)
 final growthProvider = GrowthNotifierProvider._();
@@ -80,7 +80,7 @@ final class GrowthNotifierProvider
   }
 }
 
-String _$growthNotifierHash() => r'eca10126ac5e610fae51486ba75708ef9f53543d';
+String _$growthNotifierHash() => r'aabffadb24ee7beec6fc2ce59748eb353c0665a6';
 
 abstract class _$GrowthNotifier extends $Notifier<void> {
   void build();

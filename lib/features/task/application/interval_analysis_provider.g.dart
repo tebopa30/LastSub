@@ -8,18 +8,12 @@ part of 'interval_analysis_provider.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
-/// タスクIDごとに次回実施予測を取得するFamilyプロバイダ。
-/// - SQLiteから過去30日間のレコードを取得
-/// - バックエンドの /api/v1/analyze にPOSTして結果を返す
-/// - 2件未満のデータ、UID未取得、通信エラー等の場合は null を返す（UI側で静かに非表示）
+/// AI 予測機能はローカル版では未使用。常に null を返すスタブ。
 
 @ProviderFor(intervalAnalysis)
 final intervalAnalysisProvider = IntervalAnalysisFamily._();
 
-/// タスクIDごとに次回実施予測を取得するFamilyプロバイダ。
-/// - SQLiteから過去30日間のレコードを取得
-/// - バックエンドの /api/v1/analyze にPOSTして結果を返す
-/// - 2件未満のデータ、UID未取得、通信エラー等の場合は null を返す（UI側で静かに非表示）
+/// AI 予測機能はローカル版では未使用。常に null を返すスタブ。
 
 final class IntervalAnalysisProvider extends $FunctionalProvider<
         AsyncValue<IntervalAnalysisResult?>,
@@ -28,10 +22,7 @@ final class IntervalAnalysisProvider extends $FunctionalProvider<
     with
         $FutureModifier<IntervalAnalysisResult?>,
         $FutureProvider<IntervalAnalysisResult?> {
-  /// タスクIDごとに次回実施予測を取得するFamilyプロバイダ。
-  /// - SQLiteから過去30日間のレコードを取得
-  /// - バックエンドの /api/v1/analyze にPOSTして結果を返す
-  /// - 2件未満のデータ、UID未取得、通信エラー等の場合は null を返す（UI側で静かに非表示）
+  /// AI 予測機能はローカル版では未使用。常に null を返すスタブ。
   IntervalAnalysisProvider._(
       {required IntervalAnalysisFamily super.from,
       required (
@@ -87,12 +78,9 @@ final class IntervalAnalysisProvider extends $FunctionalProvider<
   }
 }
 
-String _$intervalAnalysisHash() => r'96e22c1bd31dc0f73afd4fbd160bbdacb646a038';
+String _$intervalAnalysisHash() => r'dd2f2e48016291f6f85dbbed7eac4860594676db';
 
-/// タスクIDごとに次回実施予測を取得するFamilyプロバイダ。
-/// - SQLiteから過去30日間のレコードを取得
-/// - バックエンドの /api/v1/analyze にPOSTして結果を返す
-/// - 2件未満のデータ、UID未取得、通信エラー等の場合は null を返す（UI側で静かに非表示）
+/// AI 予測機能はローカル版では未使用。常に null を返すスタブ。
 
 final class IntervalAnalysisFamily extends $Family
     with
@@ -111,10 +99,7 @@ final class IntervalAnalysisFamily extends $Family
           isAutoDispose: true,
         );
 
-  /// タスクIDごとに次回実施予測を取得するFamilyプロバイダ。
-  /// - SQLiteから過去30日間のレコードを取得
-  /// - バックエンドの /api/v1/analyze にPOSTして結果を返す
-  /// - 2件未満のデータ、UID未取得、通信エラー等の場合は null を返す（UI側で静かに非表示）
+  /// AI 予測機能はローカル版では未使用。常に null を返すスタブ。
 
   IntervalAnalysisProvider call(
     String taskId, {
